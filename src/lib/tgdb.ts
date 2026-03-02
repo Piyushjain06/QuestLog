@@ -202,6 +202,15 @@ export async function searchGames(
     const res = await fetch(`${TGDB_BASE}/v1.1/Games/ByGameName?${params}`, {
         signal: AbortSignal.timeout(5000),
     });
+
+    if (res.status === 429) {
+        throw new Error("TGDB rate limit exceeded — monthly API allowance used up");
+    }
+
+    if (!res.ok) {
+        throw new Error(`TGDB API returned ${res.status}`);
+    }
+
     const json = await res.json();
 
     if (!json.data?.games || json.data.count === 0) {

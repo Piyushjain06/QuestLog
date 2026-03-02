@@ -7,8 +7,8 @@ import { Search, Plus, Check, Loader2, Gamepad2, ExternalLink } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-interface TGDBGame {
-    tgdbId: number;
+interface IGDBGame {
+    igdbId: number;
     title: string;
     description: string;
     coverUrl: string;
@@ -32,16 +32,17 @@ const PLATFORM_FILTERS = [
 
 export default function DiscoverClient() {
     const [query, setQuery] = useState("");
-    const [results, setResults] = useState<TGDBGame[]>([]);
+    const [results, setResults] = useState<IGDBGame[]>([]);
     const [loading, setLoading] = useState(false);
     const [addedIds, setAddedIds] = useState<Set<number>>(new Set());
     const [addingId, setAddingId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [warning, setWarning] = useState<string | null>(null);
     const [platformFilter, setPlatformFilter] = useState("ALL");
     const [navigatingId, setNavigatingId] = useState<number | null>(null);
     const router = useRouter();
 
-    const [source, setSource] = useState<string>("tgdb");
+    const [source, setSource] = useState<string>("igdb");
 
     // Debounced search
     const searchGames = useCallback(async (q: string) => {
@@ -51,15 +52,19 @@ export default function DiscoverClient() {
         }
         setLoading(true);
         setError(null);
+        setWarning(null);
         try {
-            const res = await fetch(`/api/tgdb/search?q=${encodeURIComponent(q)}`);
+            const res = await fetch(`/api/igdb/search?q=${encodeURIComponent(q)}`);
             const data = await res.json();
             if (data.error) {
                 setError(data.error);
                 setResults([]);
             } else {
                 setResults(data.games ?? []);
-                setSource(data.source || "tgdb");
+                setSource(data.source || "igdb");
+                if (data.warning) {
+                    setWarning(data.warning);
+                }
             }
         } catch {
             setError("Search failed. Check your connection.");
@@ -89,17 +94,17 @@ export default function DiscoverClient() {
             )
         );
 
-    const addToLibrary = async (game: TGDBGame) => {
-        setAddingId(game.tgdbId);
+    const addToLibrary = async (game: IGDBGame) => {
+        setAddingId(game.igdbId);
         try {
-            const res = await fetch("/api/tgdb/import", {
+            const res = await fetch("/api/igdb/import", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tgdbId: game.tgdbId, status: "BACKLOG", platforms: game.platforms, description: game.description }),
+                body: JSON.stringify({ igdbId: game.igdbId, status: "BACKLOG", platforms: game.platforms, description: game.description }),
             });
             const data = await res.json();
             if (data.success) {
-                setAddedIds((prev) => { const s = new Set(Array.from(prev)); s.add(game.tgdbId); return s; });
+                setAddedIds((prev) => { const s = new Set(Array.from(prev)); s.add(game.igdbId); return s; });
             }
         } catch {
             // Silently fail
@@ -108,18 +113,18 @@ export default function DiscoverClient() {
         }
     };
 
-    const navigateToGame = async (game: TGDBGame) => {
+    const navigateToGame = async (game: IGDBGame) => {
         // If the game already exists locally, navigate directly
         if (game.localId) {
             router.push(`/game/${game.localId}`);
             return;
         }
-        setNavigatingId(game.tgdbId);
+        setNavigatingId(game.igdbId);
         try {
-            const res = await fetch("/api/tgdb/import", {
+            const res = await fetch("/api/igdb/import", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tgdbId: game.tgdbId, platforms: game.platforms, description: game.description }),
+                body: JSON.stringify({ igdbId: game.igdbId, platforms: game.platforms, description: game.description }),
             });
             const data = await res.json();
             if (data.success && data.game?.id) {
@@ -143,7 +148,7 @@ export default function DiscoverClient() {
                         <span className="text-foreground">Games</span>
                     </h1>
                     <p className="text-muted-foreground text-lg mb-8 max-w-2xl mx-auto">
-                        Search over 80,000 games from TheGamesDB. Find your next adventure and add it to your library.
+                        Search over 300,000 games from IGDB. Find your next adventure and add it to your library.
                     </p>
 
                     {/* Search bar */}
@@ -198,6 +203,14 @@ export default function DiscoverClient() {
                 </div>
             )}
 
+            {warning && (
+                <div className="mx-auto max-w-4xl px-4 mb-6">
+                    <div className="glass-card p-4 border-yellow-500/30 text-yellow-400 text-center rounded-lg text-sm">
+                        ⚠️ {warning}
+                    </div>
+                </div>
+            )}
+
             {/* Results */}
             <section className="mx-auto max-w-7xl px-4 pb-16">
                 {results.length > 0 && (
@@ -238,12 +251,12 @@ export default function DiscoverClient() {
 
                 <div className="grid gap-4">
                     {filteredResults.map((game) => {
-                        const isAdded = addedIds.has(game.tgdbId);
-                        const isAdding = addingId === game.tgdbId;
+                        const isAdded = addedIds.has(game.igdbId);
+                        const isAdding = addingId === game.igdbId;
 
                         return (
                             <div
-                                key={game.tgdbId}
+                                key={game.igdbId}
                                 className="glass-card rounded-xl overflow-hidden hover:border-neon-cyan/30 transition-all duration-300 group"
                             >
                                 <div className="flex flex-col sm:flex-row">
@@ -252,7 +265,7 @@ export default function DiscoverClient() {
                                         className="relative w-full sm:w-32 md:w-40 h-44 sm:h-auto flex-shrink-0 bg-card/50 cursor-pointer"
                                         onClick={() => navigateToGame(game)}
                                     >
-                                        {navigatingId === game.tgdbId && (
+                                        {navigatingId === game.igdbId && (
                                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
                                                 <Loader2 className="h-6 w-6 text-neon-cyan animate-spin" />
                                             </div>
@@ -335,13 +348,13 @@ export default function DiscoverClient() {
                                                 )}
                                             </Button>
                                             <a
-                                                href={`https://thegamesdb.net/game.php?id=${game.tgdbId}`}
+                                                href={`https://www.igdb.com/`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-xs text-muted-foreground hover:text-neon-cyan transition-colors flex items-center gap-1"
                                             >
                                                 <ExternalLink className="h-3 w-3" />
-                                                TGDB
+                                                IGDB
                                             </a>
                                         </div>
                                     </div>

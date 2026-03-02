@@ -61,6 +61,8 @@ export default async function ProfilePage() {
                 joinedAt: user.createdAt.toISOString(),
                 image: user.image || null,
                 bio: user.bio || "",
+                trackerPlatform: (user as any).trackerPlatform || null,
+                trackerUsername: (user as any).trackerUsername || null,
             }}
             library={JSON.parse(JSON.stringify(library))}
             friends={friends.map((f) => ({

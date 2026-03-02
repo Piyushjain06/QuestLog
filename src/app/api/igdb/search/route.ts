@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchGames } from "@/lib/tgdb";
+import { searchGames } from "@/lib/igdb";
 import { prisma } from "@/lib/prisma";
 
 // Search the local Prisma DB as a fallback
@@ -27,7 +27,7 @@ async function searchLocalDB(query: string) {
 
     return {
         games: combined.map((g) => ({
-            tgdbId: g.tgdbId ? Number(g.tgdbId) : -Math.abs(g.id.charCodeAt(0)),
+            igdbId: g.igdbId ? Number(g.igdbId) : -Math.abs(g.id.charCodeAt(0)),
             title: g.title,
             description: g.description || "",
             coverUrl: g.coverUrl || "",
@@ -39,34 +39,34 @@ async function searchLocalDB(query: string) {
             platforms: (() => { try { return JSON.parse(g.platforms); } catch { return []; } })(),
             localId: g.id,
         })),
-        pages: { next: "", previous: "" },
+        count: combined.length,
         source: "local" as const,
     };
 }
 
 export async function GET(req: NextRequest) {
     const q = req.nextUrl.searchParams.get("q");
-    const page = parseInt(req.nextUrl.searchParams.get("page") ?? "1", 10);
+    const offset = parseInt(req.nextUrl.searchParams.get("offset") ?? "0", 10);
 
     if (!q || q.trim().length === 0) {
-        return NextResponse.json({ games: [], pages: {} });
+        return NextResponse.json({ games: [], count: 0 });
     }
 
     const query = q.trim();
-    let tgdbUnavailable = false;
-    let tgdbError = "";
+    let igdbUnavailable = false;
+    let igdbError = "";
 
-    // Try TGDB first with a 5-second timeout
+    // Try IGDB first
     try {
-        const result = await searchGames(query, page);
+        const result = await searchGames(query, 20, offset);
 
         if (result.games.length > 0) {
-            return NextResponse.json({ ...result, source: "tgdb" });
+            return NextResponse.json({ ...result, source: "igdb" });
         }
     } catch (error: unknown) {
-        tgdbUnavailable = true;
-        tgdbError = error instanceof Error ? error.message : "Unknown error";
-        console.warn("TGDB search unavailable, falling back to local DB:", tgdbError);
+        igdbUnavailable = true;
+        igdbError = error instanceof Error ? error.message : "Unknown error";
+        console.warn("IGDB search unavailable, falling back to local DB:", igdbError);
     }
 
     // Fallback: search local database
@@ -74,8 +74,8 @@ export async function GET(req: NextRequest) {
         const localResult = await searchLocalDB(query);
         return NextResponse.json({
             ...localResult,
-            ...(tgdbUnavailable && {
-                warning: "TheGamesDB API is temporarily unavailable (rate limit reached). Showing results from your local library only.",
+            ...(igdbUnavailable && {
+                warning: "Twitch IGDB API is temporarily unavailable. Showing results from your local library only.",
             }),
         });
     } catch (error: unknown) {

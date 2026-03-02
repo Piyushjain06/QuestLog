@@ -52,6 +52,8 @@ model User {
   bio           String?
   steamId       String?   @unique
   epicId        String?
+  trackerPlatform String?   // e.g. "origin", "xbl", "psn", "uplay"
+  trackerUsername String?   // gamertag / EA ID / Ubisoft name
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -73,6 +75,7 @@ model Game {
   steamAppId  String?  @unique
   epicId      String?  @unique
   tgdbId      String?  @unique
+  igdbId      String?  @unique
   genres      String   @default("[]") // JSON array stored as string
   tags        String   @default("[]") // JSON array stored as string
   platforms   String   @default("[]") // JSON array stored as string
