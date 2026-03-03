@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
     ArrowLeft,
     ExternalLink,
@@ -19,6 +20,8 @@ import {
     Edit3,
     ShoppingCart,
     Heart,
+    Sparkles,
+    ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,14 +63,27 @@ interface LibraryEntry {
     favorite: boolean;
 }
 
+interface SimilarGame {
+    id?: string;
+    igdbId?: number;
+    title: string;
+    coverUrl: string | null;
+    genres: string[];
+    themes?: string[];
+    tags?: string[];
+    score?: number;
+    rating?: string | null;
+}
+
 interface GameDetailClientProps {
     game: Game;
     missions: Mission[];
     libraryEntry: LibraryEntry | null;
     isLoggedIn: boolean;
+    similarGames: SimilarGame[];
 }
 
-export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn }: GameDetailClientProps) {
+export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn, similarGames }: GameDetailClientProps) {
     const genres = parseJsonField<string[]>(game.genres, []);
     const tags = parseJsonField<string[]>(game.tags, []);
     const platforms = parseJsonField<string[]>(game.platforms, []);
@@ -84,6 +100,14 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn }: G
     const [trailerLoading, setTrailerLoading] = useState(true);
     const [rating, setRating] = useState<number | null>(libraryEntry?.userRating ?? null);
     const [hoverRating, setHoverRating] = useState<number | null>(null);
+
+    // NSFW age-gate
+    const nsfwKeywords = ["erotic", "sexual content", "nudity", "hentai"];
+    const isNsfw = [...genres, ...tags].some((t) =>
+        nsfwKeywords.some((kw) => t.toLowerCase().includes(kw))
+    );
+    const [nsfwConfirmed, setNsfwConfirmed] = useState(false);
+    const router = useRouter();
 
     useEffect(() => {
         const fetchTrailer = async () => {
@@ -204,6 +228,61 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn }: G
         { value: "DROPPED", label: "Dropped", variant: "dropped" as const },
     ];
 
+    // Show NSFW gate if needed
+    if (isNsfw && !nsfwConfirmed) {
+        return (
+            <div className="min-h-[60vh] flex items-center justify-center animate-fade-in">
+                {/* Glow background effect */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-red-500/5 blur-[120px]" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full bg-neon-purple/5 blur-[80px]" />
+                </div>
+
+                <div className="relative glass-card max-w-md w-full p-10 text-center space-y-8 border-red-500/20 shadow-[0_0_40px_rgba(239,68,68,0.08)]">
+                    {/* Animated icon */}
+                    <div className="mx-auto w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500/20 to-neon-purple/20 border border-red-500/30 flex items-center justify-center shadow-[0_0_30px_rgba(239,68,68,0.15)] animate-pulse">
+                        <ShieldAlert className="h-10 w-10 text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/5 px-4 py-1.5 text-sm text-red-400">
+                            <ShieldAlert className="h-3.5 w-3.5" />
+                            NSFW Content
+                        </div>
+                        <h2 className="text-3xl font-display font-bold">
+                            <span className="bg-gradient-to-r from-red-400 to-neon-purple bg-clip-text text-transparent">
+                                18+ Content Warning
+                            </span>
+                        </h2>
+                        <p className="text-muted-foreground leading-relaxed">
+                            <span className="font-semibold text-neon-cyan">{game.title}</span> contains mature/adult content
+                            that may not be suitable for all audiences.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col gap-3 pt-2">
+                        <button
+                            onClick={() => setNsfwConfirmed(true)}
+                            className="w-full px-6 py-3.5 rounded-xl bg-gradient-to-r from-red-500/80 to-neon-purple/80 text-white font-semibold hover:from-red-500 hover:to-neon-purple transition-all duration-300 shadow-[0_0_20px_rgba(239,68,68,0.2)] hover:shadow-[0_0_30px_rgba(239,68,68,0.35)]"
+                        >
+                            I am 18+ — Continue
+                        </button>
+                        <button
+                            onClick={() => router.back()}
+                            className="w-full px-6 py-3.5 rounded-xl border border-border/50 text-muted-foreground hover:text-neon-cyan hover:border-neon-cyan/30 hover:bg-neon-cyan/5 transition-all duration-200"
+                        >
+                            Go Back
+                        </button>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground/40">
+                        By continuing, you confirm you are at least 18 years old.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-8 animate-fade-in">
             {/* Back button */}
@@ -272,6 +351,18 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn }: G
                                 </Badge>
                             ))}
                         </div>
+
+                        {/* Themes */}
+                        {tags.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-semibold text-neon-purple uppercase tracking-wider">Themes</span>
+                                {tags.map((tag) => (
+                                    <Badge key={tag} variant="outline" className="border-neon-purple/30 text-neon-purple bg-neon-purple/5">
+                                        {tag}
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
 
                         {/* Meta info */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
@@ -606,19 +697,6 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn }: G
                         </a>
                     </div>
 
-                    {/* Tags */}
-                    {tags.length > 0 && (
-                        <div className="glass-card p-4 space-y-3">
-                            <h3 className="font-display font-semibold">Tags</h3>
-                            <div className="flex flex-wrap gap-1.5">
-                                {tags.map((tag) => (
-                                    <Badge key={tag} variant="outline" className="text-xs">
-                                        {tag}
-                                    </Badge>
-                                ))}
-                            </div>
-                        </div>
-                    )}
 
                     {/* Platforms */}
                     {platforms.length > 0 && (
@@ -635,6 +713,72 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn }: G
                     )}
                 </div>
             </div>
+
+            {/* Similar Games */}
+            {similarGames.length > 0 && (
+                <section className="space-y-4">
+                    <div className="flex items-center gap-3">
+                        <Sparkles className="h-5 w-5 text-neon-purple" />
+                        <h2 className="text-xl font-display font-bold">Similar Games</h2>
+                        <Badge variant="outline" className="ml-auto">
+                            {similarGames.length} found
+                        </Badge>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                        {similarGames.map((sg, idx) => {
+                            const ratingDisplay = sg.rating
+                                ? `★ ${parseFloat(sg.rating).toFixed(0)}%`
+                                : sg.score
+                                    ? `${Math.min(Math.round(sg.score * 100), 99)}%`
+                                    : null;
+                            const href = sg.id ? `/game/${sg.id}` : `/discover`;
+                            return (
+                                <Link key={sg.igdbId ?? sg.id ?? idx} href={href}>
+                                    <div className="group glass-card game-card-hover overflow-hidden cursor-pointer">
+                                        <div className="relative aspect-[3/4] overflow-hidden bg-muted">
+                                            {sg.coverUrl ? (
+                                                <Image
+                                                    src={sg.coverUrl}
+                                                    alt={sg.title}
+                                                    fill
+                                                    className="object-cover transition-transform duration-500 group-hover:scale-110"
+                                                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                                                />
+                                            ) : (
+                                                <div className="flex items-center justify-center h-full bg-gradient-to-br from-neon-purple/20 to-neon-cyan/20">
+                                                    <span className="text-4xl font-display font-bold text-muted-foreground/30">
+                                                        {sg.title.charAt(0)}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {ratingDisplay && (
+                                                <div className="absolute top-2 left-2">
+                                                    <div className="flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1">
+                                                        <Sparkles className="h-3 w-3 text-neon-purple" />
+                                                        <span className="text-xs font-bold text-neon-cyan">{ratingDisplay}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="p-3 space-y-1.5">
+                                            <h3 className="font-semibold text-sm leading-tight truncate group-hover:text-neon-cyan transition-colors">
+                                                {sg.title}
+                                            </h3>
+                                            <div className="flex flex-wrap gap-1">
+                                                {sg.genres.slice(0, 2).map((genre) => (
+                                                    <Badge key={genre} variant="outline" className="text-[10px] px-1.5 py-0">
+                                                        {genre}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
         </div>
     );
 }

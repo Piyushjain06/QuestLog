@@ -77,6 +77,7 @@ export interface IGDBGame {
     first_release_date?: number;
     total_rating?: number;
     genres?: { id: number; name: string }[];
+    themes?: { id: number; name: string }[];
     platforms?: { id: number; name: string }[];
     involved_companies?: {
         developer: boolean;
@@ -94,6 +95,7 @@ export interface NormalizedGame {
     releaseDate: string | null;
     rating: string | null;
     genres: string[];
+    themes: string[];
     developers: string[];
     publishers: string[];
     platforms: string[];
@@ -127,6 +129,7 @@ function normalizeGame(game: IGDBGame): NormalizedGame {
         releaseDate,
         rating: game.total_rating ? game.total_rating.toFixed(1) : null,
         genres: game.genres?.map((g) => g.name) ?? [],
+        themes: game.themes?.map((t) => t.name) ?? [],
         developers,
         publishers,
         platforms: game.platforms?.map((p) => p.name) ?? [],
@@ -135,7 +138,7 @@ function normalizeGame(game: IGDBGame): NormalizedGame {
 
 // ── Exported Methods ────────────────────────────────────────────────────────
 
-const STANDARD_FIELDS = "name, summary, first_release_date, total_rating, genres.name, involved_companies.developer, involved_companies.publisher, involved_companies.company.name, platforms.name, cover.image_id";
+const STANDARD_FIELDS = "name, summary, first_release_date, total_rating, genres.name, themes.name, involved_companies.developer, involved_companies.publisher, involved_companies.company.name, platforms.name, cover.image_id";
 
 export async function searchGames(
     name: string,
@@ -216,5 +219,70 @@ export async function getGameImages(gameId: number): Promise<{ baseUrl: string; 
         };
     } catch {
         return { baseUrl: "", images: [] };
+    }
+}
+
+/**
+ * Fetch similar games from IGDB API by matching the source game's genres and themes.
+ * Requires ALL themes to match; falls back to OR if strict matching returns nothing.
+ */
+export async function getSimilarGamesFromIGDB(
+    igdbId: number,
+    limit: number = 5
+): Promise<NormalizedGame[]> {
+    try {
+        // 1. Fetch the source game to get its genre + theme IDs
+        const sourceQuery = `
+            fields genres, themes;
+            where id = ${igdbId};
+        `;
+        const sourceResults: Array<{ id: number; genres?: number[]; themes?: number[] }> =
+            await fetchIGDB("games", sourceQuery);
+
+        if (!sourceResults || sourceResults.length === 0) return [];
+
+        const source = sourceResults[0];
+        const genreIds = source.genres ?? [];
+        const themeIds = source.themes ?? [];
+
+        if (genreIds.length === 0 && themeIds.length === 0) return [];
+
+        const baseFilter = `id != ${igdbId} & version_parent = null & cover != null & total_rating != null`;
+
+        // 2. Build a strict filter: must match ALL themes (AND) + at least one genre
+        const strictThemeFilters = themeIds.map((id) => `themes = (${id})`);
+        const strictParts = [...strictThemeFilters];
+        if (genreIds.length > 0) strictParts.push(`genres = (${genreIds.join(",")})`);
+
+        const strictQuery = `
+            fields ${STANDARD_FIELDS};
+            where ${strictParts.join(" & ")} & ${baseFilter};
+            sort total_rating desc;
+            limit ${limit};
+        `;
+
+        let rawGames: IGDBGame[] = await fetchIGDB("games", strictQuery);
+
+        // 3. Fallback: if strict AND returned nothing, relax to OR
+        if (rawGames.length === 0) {
+            const relaxedParts: string[] = [];
+            if (genreIds.length > 0) relaxedParts.push(`genres = (${genreIds.join(",")})`);
+            if (themeIds.length > 0) relaxedParts.push(`themes = (${themeIds.join(",")})`);
+            const orFilter = relaxedParts.length > 1 ? `(${relaxedParts.join(" | ")})` : relaxedParts[0];
+
+            const relaxedQuery = `
+                fields ${STANDARD_FIELDS};
+                where ${orFilter} & ${baseFilter};
+                sort total_rating desc;
+                limit ${limit};
+            `;
+
+            rawGames = await fetchIGDB("games", relaxedQuery);
+        }
+
+        return rawGames.map(normalizeGame);
+    } catch (error) {
+        console.warn("Failed to fetch similar games from IGDB:", error);
+        return [];
     }
 }
