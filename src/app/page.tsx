@@ -53,7 +53,7 @@ export default async function HomePage() {
             <section className="w-full max-w-5xl pb-20 px-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                        { value: "10k+", label: "Games Tracked", icon: Monitor },
+                        { value: "300K+", label: "Games Tracked", icon: Monitor },
                         { value: "100+", label: "Missions", icon: Swords },
                         { value: "5", label: "Platforms", icon: Gamepad2 },
                         { value: "AI", label: "Powered", icon: Zap },
