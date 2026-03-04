@@ -47,10 +47,10 @@ export default async function GameDetailPage({ params }: { params: { id: string 
         }
     }
 
-    // Fetch similar games from IGDB API (or fallback to local DB)
+    // Fetch similar games from IGDB API
     const similarGamesPromise = game.igdbId
         ? getSimilarGamesFromIGDB(Number(game.igdbId), 5)
-        : getSimilarGames(game.id, 5);
+        : Promise.resolve([]);
 
     const session = await getServerSession(authOptions);
     let missionProgress: Record<string, boolean> = {};

@@ -1,33 +1,64 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Sparkles, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface RecommendationCardProps {
-    id: string;
+    igdbId: number;
     title: string;
     coverUrl: string | null;
     genres: string[];
+    platforms: string[];
+    description: string;
     score: number;
     reason: string;
 }
 
 export function RecommendationCard({
-    id,
+    igdbId,
     title,
     coverUrl,
     genres,
+    platforms,
+    description,
     score,
     reason,
 }: RecommendationCardProps) {
     const matchPercent = Math.min(Math.round(score * 10), 99);
+    const [navigating, setNavigating] = useState(false);
+    const router = useRouter();
+
+    const handleClick = async () => {
+        setNavigating(true);
+        try {
+            const res = await fetch("/api/igdb/import", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ igdbId, platforms, description }),
+            });
+            const data = await res.json();
+            if (data.success && data.game?.id) {
+                router.push(`/game/${data.game.id}`);
+            }
+        } catch {
+            // Silently fail
+        } finally {
+            setNavigating(false);
+        }
+    };
 
     return (
-        <Link href={`/game/${id}`}>
-            <div className="group glass-card game-card-hover overflow-hidden cursor-pointer">
+        <div onClick={handleClick} className="cursor-pointer">
+            <div className="group glass-card game-card-hover overflow-hidden">
                 <div className="relative aspect-[3/4] overflow-hidden bg-muted">
+                    {navigating && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
+                            <Loader2 className="h-6 w-6 text-neon-cyan animate-spin" />
+                        </div>
+                    )}
                     {coverUrl ? (
                         <Image
                             src={coverUrl}
@@ -35,6 +66,7 @@ export function RecommendationCard({
                             fill
                             className="object-cover transition-transform duration-500 group-hover:scale-110"
                             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                            unoptimized
                         />
                     ) : (
                         <div className="flex items-center justify-center h-full bg-gradient-to-br from-neon-purple/20 to-neon-cyan/20">
@@ -67,6 +99,6 @@ export function RecommendationCard({
                     </div>
                 </div>
             </div>
-        </Link>
+        </div>
     );
 }

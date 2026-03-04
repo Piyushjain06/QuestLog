@@ -370,6 +370,46 @@ export async function getMostAnticipatedGames(limit: number = 8): Promise<Normal
 /**
  * Fetch coming soon games: releasing within the next 14 days.
  */
+/**
+ * Fetch recommended games based on genre/theme names.
+ * Used by the recommender system to get IGDB candidates matching a user's taste.
+ */
+export async function getRecommendedGames(
+    genreNames: string[],
+    excludeIgdbIds: number[] = [],
+    limit: number = 20
+): Promise<NormalizedGame[]> {
+    try {
+        if (genreNames.length === 0) return [];
+
+        // Build genre/theme name filters — match any of the user's preferred genres or themes
+        const genreConditions = genreNames.map((g) => `genres.name ~ *"${g}"*`).join(" | ");
+        const themeConditions = genreNames.map((g) => `themes.name ~ *"${g}"*`).join(" | ");
+
+        const excludeClause = excludeIgdbIds.length > 0
+            ? `& id != (${excludeIgdbIds.join(",")})`
+            : "";
+
+        const query = `
+            fields ${STANDARD_FIELDS};
+            where (${genreConditions} | ${themeConditions})
+                & version_parent = null
+                & cover != null
+                & total_rating_count >= 5
+                & total_rating >= 70
+                ${excludeClause};
+            sort total_rating desc;
+            limit ${limit};
+        `;
+
+        const rawGames: IGDBGame[] = await fetchIGDB("games", query);
+        return rawGames.map(normalizeGame);
+    } catch (error) {
+        console.warn("Failed to fetch recommended games from IGDB:", error);
+        return [];
+    }
+}
+
 export async function getComingSoonGames(limit: number = 12): Promise<NormalizedGame[]> {
     try {
         const now = Math.floor(Date.now() / 1000);

@@ -1,13 +1,7 @@
 import { prisma } from "./prisma";
 import { parseJsonField } from "./utils";
-
-interface GameVector {
-    id: string;
-    title: string;
-    coverUrl: string | null;
-    genres: string[];
-    tags: string[];
-}
+import { getRecommendedGames, getTrendingGames } from "./igdb";
+import type { NormalizedGame } from "./igdb";
 
 /**
  * Build a weighted tag/genre frequency map from the user's library.
@@ -70,29 +64,14 @@ function getTopTags(
 }
 
 /**
- * Build a Prisma `OR` filter that matches games containing any of the given tags
- * in their `genres` or `tags` JSON string columns (e.g. `contains: '"Action"'`).
- */
-function buildTagFilter(topTags: Array<{ original: string }>) {
-    const conditions: Array<Record<string, unknown>> = [];
-    for (const { original } of topTags) {
-        // Match the JSON-encoded string value, e.g. `"Action"` inside `["Action","RPG"]`
-        const needle = `"${original}"`;
-        conditions.push({ genres: { contains: needle } });
-        conditions.push({ tags: { contains: needle } });
-    }
-    return conditions;
-}
-
-/**
- * Content-based recommendation engine.
- * Uses tag/genre similarity with database-level candidate filtering
- * to stay fast even with 300K+ games in the catalog.
+ * IGDB-powered content-based recommendation engine.
+ * Builds user preferences from their local library, then queries IGDB
+ * for highly-rated games matching those genres/themes.
  */
 export async function getRecommendations(
     userId: string,
-    limit: number = 10
-): Promise<Array<GameVector & { score: number; reason: string }>> {
+    limit: number = 12
+): Promise<Array<NormalizedGame & { score: number; reason: string }>> {
     // 1. Get user's games with their tags, rating, and status
     const userLibrary = await prisma.userGameLibrary.findMany({
         where: { userId },
@@ -105,45 +84,34 @@ export async function getRecommendations(
     const profile = buildUserProfile(userLibrary);
     if (profile.size === 0) return [];
 
-    // 3. Extract top-10 most weighted tags for DB filtering
-    const topTags = getTopTags(profile, 10);
+    // 3. Extract top genres/themes for IGDB query
+    const topTags = getTopTags(profile, 8);
+    const genreNames = topTags.map((t) => t.original);
 
-    // 4. Query only candidate games that match at least one top tag
-    //    (database-level filtering avoids loading the entire catalog)
-    const userGameIds = new Set(userLibrary.map((e) => e.gameId));
-    const orConditions = buildTagFilter(topTags);
+    // 4. Collect IGDB IDs of games already in the user's library to exclude
+    const excludeIgdbIds: number[] = [];
+    for (const entry of userLibrary) {
+        if (entry.game.igdbId) {
+            excludeIgdbIds.push(entry.game.igdbId);
+        }
+    }
 
-    const candidates = await prisma.game.findMany({
-        where: {
-            id: { notIn: [...userGameIds] },
-            OR: orConditions,
-        },
-        take: 1000, // cap to keep memory bounded
-    });
+    // 5. Query IGDB for recommended games matching those genres
+    const candidates = await getRecommendedGames(genreNames, excludeIgdbIds, limit * 2);
 
-    // If DB filtering returned nothing, fallback to top-rated games
     if (candidates.length === 0) {
-        const fallback = await prisma.game.findMany({
-            where: { id: { notIn: [...userGameIds] }, rating: { not: null } },
-            orderBy: { rating: "desc" },
-            take: limit,
-        });
-        return fallback.map((game) => ({
-            id: game.id,
-            title: game.title,
-            coverUrl: game.coverUrl,
-            genres: parseJsonField<string[]>(game.genres, []),
-            tags: parseJsonField<string[]>(game.tags, []),
-            score: game.rating ?? 0,
-            reason: "Highly rated",
+        // Fallback to trending games
+        const trending = await getTrendingGames(limit);
+        return trending.map((game) => ({
+            ...game,
+            score: 0,
+            reason: "Trending right now",
         }));
     }
 
-    // 5. Score each candidate against the full user profile
+    // 6. Score each candidate against the full user profile for personalization
     const scored = candidates.map((game) => {
-        const genres = parseJsonField<string[]>(game.genres, []);
-        const tags = parseJsonField<string[]>(game.tags, []);
-        const allTags = [...genres, ...tags].map((t) => t.toLowerCase().trim());
+        const allTags = [...game.genres, ...(game.themes || [])].map((t) => t.toLowerCase().trim());
 
         let score = 0;
         const matchedTags: string[] = [];
@@ -159,88 +127,23 @@ export async function getRecommendations(
         // Normalize to avoid bias toward games with many tags
         const normalizedScore = allTags.length > 0 ? score / Math.sqrt(allTags.length) : 0;
 
-        // Small boost for games that have a high external rating
-        const ratingBoost = game.rating ? game.rating / 100 : 0;
+        // Boost for IGDB rating
+        const ratingBoost = game.rating ? parseFloat(game.rating) / 100 : 0;
 
         return {
-            id: game.id,
-            title: game.title,
-            coverUrl: game.coverUrl,
-            genres,
-            tags,
+            ...game,
             score: normalizedScore + ratingBoost,
             reason:
                 matchedTags.length > 0
-                    ? `Matches: ${matchedTags.slice(0, 3).join(", ")}`
-                    : "Discover something new",
+                    ? `Matches: ${[...new Set(matchedTags)].slice(0, 3).join(", ")}`
+                    : "Recommended for you",
         };
     });
 
-    // 6. Sort by score descending and return top N
-    return scored
-        .filter((g) => g.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit);
-}
+    // 7. Deduplicate by igdbId, sort by score descending and return top N
+    const uniqueGames = Array.from(new Map(scored.map(g => [g.igdbId, g])).values());
 
-/**
- * Find similar games to a specific game.
- * Uses database-level tag filtering to avoid loading the entire catalog.
- */
-export async function getSimilarGames(
-    gameId: string,
-    limit: number = 6
-): Promise<Array<GameVector & { score: number }>> {
-    const sourceGame = await prisma.game.findUnique({ where: { id: gameId } });
-    if (!sourceGame) return [];
-
-    const sourceGenres = parseJsonField<string[]>(sourceGame.genres, []);
-    const sourceTags = parseJsonField<string[]>(sourceGame.tags, []);
-    const sourceAll = [...sourceGenres, ...sourceTags];
-
-    if (sourceAll.length === 0) return [];
-
-    // Pick up to 10 tags for the DB filter
-    const filterTags = sourceAll.slice(0, 10);
-    const orConditions: Array<Record<string, unknown>> = [];
-    for (const tag of filterTags) {
-        const needle = `"${tag}"`;
-        orConditions.push({ genres: { contains: needle } });
-        orConditions.push({ tags: { contains: needle } });
-    }
-
-    const candidates = await prisma.game.findMany({
-        where: {
-            id: { not: gameId },
-            OR: orConditions,
-        },
-        take: 500,
-    });
-
-    // Compute Jaccard similarity on the reduced pool
-    const sourceVector = sourceAll.map((t) => t.toLowerCase().trim());
-    const sourceSet = new Set(sourceVector);
-
-    const scored = candidates.map((game) => {
-        const genres = parseJsonField<string[]>(game.genres, []);
-        const tags = parseJsonField<string[]>(game.tags, []);
-        const gameVector = [...genres, ...tags].map((t) => t.toLowerCase().trim());
-
-        const intersection = gameVector.filter((t) => sourceSet.has(t)).length;
-        const union = new Set([...sourceVector, ...gameVector]).size;
-        const score = union > 0 ? intersection / union : 0;
-
-        return {
-            id: game.id,
-            title: game.title,
-            coverUrl: game.coverUrl,
-            genres,
-            tags,
-            score,
-        };
-    });
-
-    return scored
+    return uniqueGames
         .filter((g) => g.score > 0)
         .sort((a, b) => b.score - a.score)
         .slice(0, limit);
