@@ -13,7 +13,6 @@ import { ThemeToggle } from "./ThemeToggle";
 const navLinks = [
     { href: "/discover", label: "Discover" },
     { href: "/profile", label: "Library" },
-    { href: "/recommend", label: "For You" },
     { href: "/users", label: "Social" },
 ];
 

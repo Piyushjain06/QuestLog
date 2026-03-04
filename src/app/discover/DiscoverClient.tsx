@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Check, Loader2, Gamepad2, ExternalLink, TrendingUp, Calendar, Star, Clock, Flame, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Plus, Check, Loader2, Gamepad2, ExternalLink, TrendingUp, Calendar, Star, Clock, Flame, ChevronDown, ChevronUp, Sparkles, Library } from "lucide-react";
+import Link from "next/link";
+import { RecommendationCard } from "@/components/RecommendationCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -30,7 +32,28 @@ const PLATFORM_FILTERS = [
     { label: "Mobile", value: "Android|iOS", icon: "📱" },
 ];
 
-export default function DiscoverClient() {
+interface Recommendation {
+    igdbId: number;
+    title: string;
+    coverUrl: string;
+    description: string;
+    releaseDate: string | null;
+    rating: string | null;
+    genres: string[];
+    themes: string[];
+    developers: string[];
+    publishers: string[];
+    platforms: string[];
+    score: number;
+    reason: string;
+}
+
+interface DiscoverClientProps {
+    recommendations?: Recommendation[];
+    hasUser?: boolean;
+}
+
+export default function DiscoverClient({ recommendations = [], hasUser = false }: DiscoverClientProps) {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<IGDBGame[]>([]);
     const [loading, setLoading] = useState(false);
@@ -441,6 +464,53 @@ export default function DiscoverClient() {
             {/* Discovery sections — shown when NOT searching */}
             {!isSearching && (
                 <section className="mx-auto max-w-7xl px-4 pb-16 space-y-14">
+
+                    {/* ✨ Recommended for You (Only shown if user has recommendations or is logged in) */}
+                    {hasUser && (
+                        <div>
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-neon-purple/20 to-pink-500/20 border border-neon-purple/30">
+                                    <Sparkles className="h-5 w-5 text-neon-purple" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-display font-bold">Recommended for You</h2>
+                                    <p className="text-sm text-muted-foreground">AI-powered suggestions based on your library</p>
+                                </div>
+                            </div>
+
+                            {recommendations.length > 0 ? (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                    {recommendations.map((rec) => (
+                                        <div key={rec.igdbId} className="animate-fade-in">
+                                            <RecommendationCard
+                                                igdbId={rec.igdbId}
+                                                title={rec.title}
+                                                coverUrl={rec.coverUrl}
+                                                genres={rec.genres}
+                                                platforms={rec.platforms}
+                                                description={rec.description}
+                                                score={rec.score}
+                                                reason={rec.reason}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="glass-card p-8 text-center space-y-4 rounded-xl border border-border/30 bg-background/50">
+                                    <Library className="h-10 w-10 mx-auto text-muted-foreground/50" />
+                                    <h3 className="text-lg font-display font-semibold">
+                                        Import games to unlock recommendations
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        We need to know what you play to suggest new games. Search and add games to your library!
+                                    </p>
+                                    <Link href="/profile">
+                                        <Button variant="neon" size="sm">Go to Library</Button>
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* 🔥 Trending Now — horizontal scroll, shown first */}
                     <div>

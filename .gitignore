@@ -33,3 +33,7 @@ Thumbs.db
 # Local build artifacts
 build_output.txt
 build_output_ansi.txt
+
+# Test scripts
+test*.js
+test*.ts
