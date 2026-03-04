@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Check, Loader2, Gamepad2, ExternalLink } from "lucide-react";
+import { Search, Plus, Check, Loader2, Gamepad2, ExternalLink, TrendingUp, Calendar, Star, Clock, Flame, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -44,6 +44,36 @@ export default function DiscoverClient() {
 
     const [source, setSource] = useState<string>("igdb");
 
+    // Section data state
+    const [trendingGames, setTrendingGames] = useState<IGDBGame[]>([]);
+    const [anticipatedGames, setAnticipatedGames] = useState<IGDBGame[]>([]);
+    const [comingSoonGames, setComingSoonGames] = useState<IGDBGame[]>([]);
+    const [trendingLoading, setTrendingLoading] = useState(true);
+    const [anticipatedLoading, setAnticipatedLoading] = useState(true);
+    const [comingSoonLoading, setComingSoonLoading] = useState(true);
+    const [showAllAnticipated, setShowAllAnticipated] = useState(false);
+    const [showAllComingSoon, setShowAllComingSoon] = useState(false);
+
+    const INITIAL_COUNT = 8;
+
+    // Fetch all sections on mount
+    useEffect(() => {
+        async function fetchSection(url: string, setter: (g: IGDBGame[]) => void, loadingSetter: (b: boolean) => void) {
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.games) setter(data.games);
+            } catch {
+                // Silently fail
+            } finally {
+                loadingSetter(false);
+            }
+        }
+        fetchSection("/api/igdb/trending", setTrendingGames, setTrendingLoading);
+        fetchSection("/api/igdb/anticipated", setAnticipatedGames, setAnticipatedLoading);
+        fetchSection("/api/igdb/coming-soon", setComingSoonGames, setComingSoonLoading);
+    }, []);
+
     // Debounced search
     const searchGames = useCallback(async (q: string) => {
         if (q.trim().length < 2) {
@@ -62,9 +92,7 @@ export default function DiscoverClient() {
             } else {
                 setResults(data.games ?? []);
                 setSource(data.source || "igdb");
-                if (data.warning) {
-                    setWarning(data.warning);
-                }
+                if (data.warning) setWarning(data.warning);
             }
         } catch {
             setError("Search failed. Check your connection.");
@@ -85,7 +113,6 @@ export default function DiscoverClient() {
         return () => clearTimeout(timeout);
     }, [query, searchGames]);
 
-    // Filter results by selected platform
     const filteredResults = platformFilter === "ALL"
         ? results
         : results.filter((game) =>
@@ -93,6 +120,8 @@ export default function DiscoverClient() {
                 platformFilter.split("|").some((f) => p.toLowerCase().includes(f.toLowerCase()))
             )
         );
+
+    const isSearching = query.trim().length >= 2;
 
     const addToLibrary = async (game: IGDBGame) => {
         setAddingId(game.igdbId);
@@ -114,11 +143,7 @@ export default function DiscoverClient() {
     };
 
     const navigateToGame = async (game: IGDBGame) => {
-        // If the game already exists locally, navigate directly
-        if (game.localId) {
-            router.push(`/game/${game.localId}`);
-            return;
-        }
+        if (game.localId) { router.push(`/game/${game.localId}`); return; }
         setNavigatingId(game.igdbId);
         try {
             const res = await fetch("/api/igdb/import", {
@@ -127,15 +152,149 @@ export default function DiscoverClient() {
                 body: JSON.stringify({ igdbId: game.igdbId, platforms: game.platforms, description: game.description }),
             });
             const data = await res.json();
-            if (data.success && data.game?.id) {
-                router.push(`/game/${data.game.id}`);
-            }
+            if (data.success && data.game?.id) router.push(`/game/${data.game.id}`);
         } catch {
             // Silently fail
         } finally {
             setNavigatingId(null);
         }
     };
+
+    const formatDateShort = (dateStr: string | null) => {
+        if (!dateStr) return "";
+        const date = new Date(dateStr);
+        return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    };
+
+    // ── Small Game Card (horizontal scroll) ─────────────────────────────
+    const GameCard = ({ game, showRating = false, showDate = false }: { game: IGDBGame; showRating?: boolean; showDate?: boolean }) => {
+        const isAdded = addedIds.has(game.igdbId);
+        const isAdding = addingId === game.igdbId;
+        const isNavigating = navigatingId === game.igdbId;
+
+        return (
+            <div className="group relative flex-shrink-0 w-[180px] sm:w-[200px]">
+                <div className="glass-card overflow-hidden rounded-xl hover:border-neon-cyan/30 transition-all duration-300 h-full flex flex-col">
+                    <div
+                        className="relative aspect-[3/4] overflow-hidden bg-card/50 cursor-pointer"
+                        onClick={() => navigateToGame(game)}
+                    >
+                        {isNavigating && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
+                                <Loader2 className="h-6 w-6 text-neon-cyan animate-spin" />
+                            </div>
+                        )}
+                        {game.coverUrl ? (
+                            <Image src={game.coverUrl} alt={game.title} fill className="object-cover transition-transform duration-500 group-hover:scale-110" sizes="200px" unoptimized />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-neon-purple/20 to-neon-cyan/20">
+                                <Gamepad2 className="h-10 w-10 text-muted-foreground/30" />
+                            </div>
+                        )}
+                        {showRating && game.rating && (
+                            <div className="absolute top-2 left-2">
+                                <div className="flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1">
+                                    <Star className="h-3 w-3 text-neon-orange fill-neon-orange" />
+                                    <span className="text-xs font-bold text-neon-orange">{parseFloat(game.rating).toFixed(0)}%</span>
+                                </div>
+                            </div>
+                        )}
+                        {showDate && game.releaseDate && (
+                            <div className="absolute top-2 left-2">
+                                <div className="flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1">
+                                    <Calendar className="h-3 w-3 text-neon-cyan" />
+                                    <span className="text-xs font-bold text-neon-cyan">{formatDateShort(game.releaseDate)}</span>
+                                </div>
+                            </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); if (!isAdded && !isAdding) addToLibrary(game); }}
+                                disabled={isAdded || isAdding}
+                                className={`w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${isAdded ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/30 hover:bg-neon-cyan/30"}`}
+                            >
+                                {isAdding ? (<><Loader2 className="h-3 w-3 animate-spin" /> Adding...</>) : isAdded ? (<><Check className="h-3 w-3" /> Added</>) : (<><Plus className="h-3 w-3" /> Add to Library</>)}
+                            </button>
+                        </div>
+                    </div>
+                    <div className="p-3 space-y-1.5 flex-1">
+                        <h3 className="font-semibold text-sm leading-tight line-clamp-2 cursor-pointer group-hover:text-neon-cyan transition-colors" onClick={() => navigateToGame(game)}>
+                            {game.title}
+                        </h3>
+                        <div className="flex flex-wrap gap-1">
+                            {game.genres.slice(0, 2).map((genre) => (
+                                <Badge key={genre} variant="outline" className="text-[10px] px-1.5 py-0">{genre}</Badge>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // ── List Row Item (used for both Most Anticipated and Coming Soon) ───
+    const ListItem = ({ game }: { game: IGDBGame }) => {
+        const isNavigating = navigatingId === game.igdbId;
+        const isAdded = addedIds.has(game.igdbId);
+        const isAdding = addingId === game.igdbId;
+
+        return (
+            <div
+                className="group flex items-center gap-3 py-3 px-3 rounded-lg hover:bg-card/50 transition-all duration-200 cursor-pointer border border-transparent hover:border-border/50"
+                onClick={() => navigateToGame(game)}
+            >
+                <div className="relative w-11 h-14 flex-shrink-0 rounded-md overflow-hidden bg-card/50">
+                    {isNavigating && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
+                            <Loader2 className="h-4 w-4 text-neon-cyan animate-spin" />
+                        </div>
+                    )}
+                    {game.coverUrl ? (
+                        <Image src={game.coverUrl} alt={game.title} fill className="object-cover" sizes="44px" unoptimized />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                            <Gamepad2 className="h-4 w-4 text-muted-foreground/30" />
+                        </div>
+                    )}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-sm leading-tight truncate group-hover:text-neon-cyan transition-colors">{game.title}</h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">{formatDateShort(game.releaseDate)}</p>
+                </div>
+                <button
+                    onClick={(e) => { e.stopPropagation(); if (!isAdded && !isAdding) addToLibrary(game); }}
+                    disabled={isAdded || isAdding}
+                    className={`flex-shrink-0 p-1.5 rounded-lg transition-all ${isAdded ? "text-green-400" : "text-muted-foreground hover:text-neon-cyan hover:bg-neon-cyan/10"}`}
+                    title={isAdded ? "Added to library" : "Add to library"}
+                >
+                    {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : isAdded ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                </button>
+            </div>
+        );
+    };
+
+    // ── Skeletons ───────────────────────────────────────────────────────
+    const SkeletonCard = () => (
+        <div className="flex-shrink-0 w-[180px] sm:w-[200px]">
+            <div className="glass-card overflow-hidden rounded-xl h-full">
+                <div className="aspect-[3/4] bg-card/50 animate-pulse" />
+                <div className="p-3 space-y-2">
+                    <div className="h-4 bg-card/50 rounded animate-pulse w-3/4" />
+                    <div className="h-3 bg-card/50 rounded animate-pulse w-1/2" />
+                </div>
+            </div>
+        </div>
+    );
+
+    const ListSkeleton = () => (
+        <div className="flex items-center gap-3 py-3 px-3">
+            <div className="w-11 h-14 rounded-md bg-card/50 animate-pulse flex-shrink-0" />
+            <div className="flex-1 space-y-2">
+                <div className="h-4 bg-card/50 rounded animate-pulse w-3/4" />
+                <div className="h-3 bg-card/50 rounded animate-pulse w-1/3" />
+            </div>
+        </div>
+    );
 
     return (
         <div className="min-h-screen">
@@ -148,10 +307,9 @@ export default function DiscoverClient() {
                         <span className="text-foreground">Games</span>
                     </h1>
                     <p className="text-muted-foreground text-lg mb-8 max-w-2xl mx-auto">
-                        Search over 300,000 games from IGDB. Find your next adventure and add it to your library.
+                        Search over 300,000 games from IGDB. Explore trending titles and upcoming releases.
                     </p>
 
-                    {/* Search bar */}
                     <div className="relative max-w-2xl mx-auto mb-5">
                         <div className="relative group">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-neon-cyan transition-colors" />
@@ -163,207 +321,246 @@ export default function DiscoverClient() {
                                 className="w-full pl-12 pr-4 py-4 rounded-xl bg-card/80 border border-border/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-neon-cyan/50 focus:border-neon-cyan/50 backdrop-blur-sm text-lg transition-all"
                                 autoFocus
                             />
-                            {loading && (
-                                <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neon-cyan animate-spin" />
-                            )}
+                            {loading && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neon-cyan animate-spin" />}
                         </div>
-                        <div className="absolute inset-0 -z-10 blur-xl bg-neon-cyan/10 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity" />
                     </div>
 
-                    {/* Platform filter */}
-                    <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto">
-                        {PLATFORM_FILTERS.map((pf) => (
-                            <button
-                                key={pf.value}
-                                onClick={() => setPlatformFilter(pf.value)}
-                                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-200 border ${platformFilter === pf.value
-                                    ? "bg-neon-cyan/15 text-neon-cyan border-neon-cyan/30 shadow-sm shadow-neon-cyan/10"
-                                    : "bg-card/50 text-muted-foreground border-white/5 hover:bg-card/80 hover:text-foreground"
-                                    }`}
-                            >
-                                <span>{pf.icon}</span>
-                                <span>{pf.label}</span>
-                                {platformFilter === pf.value && results.length > 0 && (
-                                    <span className="ml-0.5 text-xs bg-neon-cyan/20 px-1.5 py-0.5 rounded-full">
-                                        {filteredResults.length}
-                                    </span>
-                                )}
-                            </button>
-                        ))}
-                    </div>
+                    {isSearching && (
+                        <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto animate-fade-in">
+                            {PLATFORM_FILTERS.map((pf) => (
+                                <button
+                                    key={pf.value}
+                                    onClick={() => setPlatformFilter(pf.value)}
+                                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-200 border ${platformFilter === pf.value ? "bg-neon-cyan/15 text-neon-cyan border-neon-cyan/30 shadow-sm shadow-neon-cyan/10" : "bg-card/50 text-muted-foreground border-white/5 hover:bg-card/80 hover:text-foreground"}`}
+                                >
+                                    <span>{pf.icon}</span>
+                                    <span>{pf.label}</span>
+                                    {platformFilter === pf.value && results.length > 0 && (
+                                        <span className="ml-0.5 text-xs bg-neon-cyan/20 px-1.5 py-0.5 rounded-full">{filteredResults.length}</span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </section>
 
-            {/* Error */}
             {error && (
                 <div className="mx-auto max-w-4xl px-4 mb-6">
-                    <div className="glass-card p-4 border-red-500/30 text-red-400 text-center rounded-lg">
-                        ⚠️ {error}
-                    </div>
+                    <div className="glass-card p-4 border-red-500/30 text-red-400 text-center rounded-lg">⚠️ {error}</div>
                 </div>
             )}
-
             {warning && (
                 <div className="mx-auto max-w-4xl px-4 mb-6">
-                    <div className="glass-card p-4 border-yellow-500/30 text-yellow-400 text-center rounded-lg text-sm">
-                        ⚠️ {warning}
-                    </div>
+                    <div className="glass-card p-4 border-yellow-500/30 text-yellow-400 text-center rounded-lg text-sm">⚠️ {warning}</div>
                 </div>
             )}
 
-            {/* Results */}
-            <section className="mx-auto max-w-7xl px-4 pb-16">
-                {results.length > 0 && (
-                    <p className="text-sm text-muted-foreground mb-6">
-                        Showing <span className="text-neon-cyan font-semibold">{filteredResults.length}</span>
-                        {platformFilter !== "ALL" && ` ${PLATFORM_FILTERS.find(f => f.value === platformFilter)?.label}`} results
-                        {filteredResults.length !== results.length && ` (${results.length} total)`} for &quot;{query}&quot;
-                    </p>
-                )}
-
-                {query.length >= 2 && !loading && filteredResults.length === 0 && !error && (
-                    <div className="text-center py-16">
-                        <Gamepad2 className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-                        <p className="text-muted-foreground text-lg">
-                            {results.length > 0 && platformFilter !== "ALL"
-                                ? `No games found for ${PLATFORM_FILTERS.find(f => f.value === platformFilter)?.label}. Try a different platform.`
-                                : "No games found. Try a different search term."}
+            {/* Search Results */}
+            {isSearching && (
+                <section className="mx-auto max-w-7xl px-4 pb-16">
+                    {results.length > 0 && (
+                        <p className="text-sm text-muted-foreground mb-6">
+                            Showing <span className="text-neon-cyan font-semibold">{filteredResults.length}</span>
+                            {platformFilter !== "ALL" && ` ${PLATFORM_FILTERS.find(f => f.value === platformFilter)?.label}`} results
+                            {filteredResults.length !== results.length && ` (${results.length} total)`} for &quot;{query}&quot;
                         </p>
-                        {results.length > 0 && platformFilter !== "ALL" && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="mt-4"
-                                onClick={() => setPlatformFilter("ALL")}
-                            >
-                                Show all platforms
-                            </Button>
-                        )}
-                    </div>
-                )}
-
-                {query.length < 2 && (
-                    <div className="text-center py-16">
-                        <Search className="h-16 w-16 mx-auto text-muted-foreground/20 mb-4" />
-                        <p className="text-muted-foreground">Type at least 2 characters to search</p>
-                    </div>
-                )}
-
-                <div className="grid gap-4">
-                    {filteredResults.map((game) => {
-                        const isAdded = addedIds.has(game.igdbId);
-                        const isAdding = addingId === game.igdbId;
-
-                        return (
-                            <div
-                                key={game.igdbId}
-                                className="glass-card rounded-xl overflow-hidden hover:border-neon-cyan/30 transition-all duration-300 group"
-                            >
-                                <div className="flex flex-col sm:flex-row">
-                                    {/* Cover art */}
-                                    <div
-                                        className="relative w-full sm:w-32 md:w-40 h-44 sm:h-auto flex-shrink-0 bg-card/50 cursor-pointer"
-                                        onClick={() => navigateToGame(game)}
-                                    >
-                                        {navigatingId === game.igdbId && (
-                                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
-                                                <Loader2 className="h-6 w-6 text-neon-cyan animate-spin" />
-                                            </div>
-                                        )}
-                                        {game.coverUrl ? (
-                                            <Image
-                                                src={game.coverUrl}
-                                                alt={game.title}
-                                                fill
-                                                className="object-cover"
-                                                sizes="(max-width: 640px) 100vw, 160px"
-                                                unoptimized
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center">
-                                                <Gamepad2 className="h-10 w-10 text-muted-foreground/30" />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Info */}
-                                    <div className="flex-1 p-4 md:p-5 flex flex-col justify-between">
-                                        <div>
-                                            <div className="flex items-start justify-between gap-3 mb-2">
-                                                <h3
-                                                    className="text-lg font-semibold text-foreground group-hover:text-neon-cyan transition-colors line-clamp-1 cursor-pointer"
-                                                    onClick={() => navigateToGame(game)}
-                                                >
-                                                    {game.title}
-                                                </h3>
-                                                {game.releaseDate && (
-                                                    <span className="text-xs text-muted-foreground whitespace-nowrap mt-1">
-                                                        {game.releaseDate}
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            {game.description && (
-                                                <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                                                    {game.description}
-                                                </p>
+                    )}
+                    {!loading && filteredResults.length === 0 && !error && (
+                        <div className="text-center py-16">
+                            <Gamepad2 className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
+                            <p className="text-muted-foreground text-lg">
+                                {results.length > 0 && platformFilter !== "ALL"
+                                    ? `No games found for ${PLATFORM_FILTERS.find(f => f.value === platformFilter)?.label}. Try a different platform.`
+                                    : "No games found. Try a different search term."}
+                            </p>
+                            {results.length > 0 && platformFilter !== "ALL" && (
+                                <Button variant="outline" size="sm" className="mt-4" onClick={() => setPlatformFilter("ALL")}>Show all platforms</Button>
+                            )}
+                        </div>
+                    )}
+                    <div className="grid gap-4">
+                        {filteredResults.map((game) => {
+                            const isAdded = addedIds.has(game.igdbId);
+                            const isAdding = addingId === game.igdbId;
+                            return (
+                                <div key={game.igdbId} className="glass-card rounded-xl overflow-hidden hover:border-neon-cyan/30 transition-all duration-300 group">
+                                    <div className="flex flex-col sm:flex-row">
+                                        <div className="relative w-full sm:w-32 md:w-40 h-44 sm:h-auto flex-shrink-0 bg-card/50 cursor-pointer" onClick={() => navigateToGame(game)}>
+                                            {navigatingId === game.igdbId && (
+                                                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50"><Loader2 className="h-6 w-6 text-neon-cyan animate-spin" /></div>
                                             )}
-
-                                            <div className="flex flex-wrap gap-1.5 mb-3">
-                                                {game.genres.slice(0, 4).map((genre) => (
-                                                    <Badge key={genre} variant="default" className="text-xs">
-                                                        {genre}
-                                                    </Badge>
-                                                ))}
-                                                {game.platforms.slice(0, 3).map((p) => (
-                                                    <Badge key={p} variant="outline" className="text-xs">
-                                                        {p}
-                                                    </Badge>
-                                                ))}
-                                            </div>
-
-                                            {(game.developers.length > 0 || game.publishers.length > 0) && (
-                                                <p className="text-xs text-muted-foreground">
-                                                    {game.developers[0] && <span>by <span className="text-foreground/80">{game.developers[0]}</span></span>}
-                                                    {game.publishers[0] && game.developers[0] && " · "}
-                                                    {game.publishers[0] && <span>Published by <span className="text-foreground/80">{game.publishers[0]}</span></span>}
-                                                </p>
+                                            {game.coverUrl ? (
+                                                <Image src={game.coverUrl} alt={game.title} fill className="object-cover" sizes="(max-width: 640px) 100vw, 160px" unoptimized />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center"><Gamepad2 className="h-10 w-10 text-muted-foreground/30" /></div>
                                             )}
                                         </div>
-
-                                        <div className="flex items-center gap-2 mt-3">
-                                            <Button
-                                                size="sm"
-                                                variant={isAdded ? "outline" : "default"}
-                                                className={isAdded ? "text-green-400 border-green-400/30" : "bg-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/30 border border-neon-cyan/30"}
-                                                onClick={() => !isAdded && !isAdding && addToLibrary(game)}
-                                                disabled={isAdded || isAdding}
-                                            >
-                                                {isAdding ? (
-                                                    <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Adding...</>
-                                                ) : isAdded ? (
-                                                    <><Check className="h-3.5 w-3.5 mr-1.5" /> Added</>
-                                                ) : (
-                                                    <><Plus className="h-3.5 w-3.5 mr-1.5" /> Add to Library</>
+                                        <div className="flex-1 p-4 md:p-5 flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex items-start justify-between gap-3 mb-2">
+                                                    <h3 className="text-lg font-semibold text-foreground group-hover:text-neon-cyan transition-colors line-clamp-1 cursor-pointer" onClick={() => navigateToGame(game)}>{game.title}</h3>
+                                                    {game.releaseDate && <span className="text-xs text-muted-foreground whitespace-nowrap mt-1">{game.releaseDate}</span>}
+                                                </div>
+                                                {game.description && <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{game.description}</p>}
+                                                <div className="flex flex-wrap gap-1.5 mb-3">
+                                                    {game.genres.slice(0, 4).map((genre) => <Badge key={genre} variant="default" className="text-xs">{genre}</Badge>)}
+                                                    {game.platforms.slice(0, 3).map((p) => <Badge key={p} variant="outline" className="text-xs">{p}</Badge>)}
+                                                </div>
+                                                {(game.developers.length > 0 || game.publishers.length > 0) && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {game.developers[0] && <span>by <span className="text-foreground/80">{game.developers[0]}</span></span>}
+                                                        {game.publishers[0] && game.developers[0] && " · "}
+                                                        {game.publishers[0] && <span>Published by <span className="text-foreground/80">{game.publishers[0]}</span></span>}
+                                                    </p>
                                                 )}
-                                            </Button>
-                                            <a
-                                                href={`https://www.igdb.com/`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-xs text-muted-foreground hover:text-neon-cyan transition-colors flex items-center gap-1"
-                                            >
-                                                <ExternalLink className="h-3 w-3" />
-                                                IGDB
-                                            </a>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-3">
+                                                <Button
+                                                    size="sm"
+                                                    variant={isAdded ? "outline" : "default"}
+                                                    className={isAdded ? "text-green-400 border-green-400/30" : "bg-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/30 border border-neon-cyan/30"}
+                                                    onClick={() => !isAdded && !isAdding && addToLibrary(game)}
+                                                    disabled={isAdded || isAdding}
+                                                >
+                                                    {isAdding ? (<><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Adding...</>) : isAdded ? (<><Check className="h-3.5 w-3.5 mr-1.5" /> Added</>) : (<><Plus className="h-3.5 w-3.5 mr-1.5" /> Add to Library</>)}
+                                                </Button>
+                                                <a href="https://www.igdb.com/" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-neon-cyan transition-colors flex items-center gap-1">
+                                                    <ExternalLink className="h-3 w-3" /> IGDB
+                                                </a>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
+
+            {/* Discovery sections — shown when NOT searching */}
+            {!isSearching && (
+                <section className="mx-auto max-w-7xl px-4 pb-16 space-y-14">
+
+                    {/* 🔥 Trending Now — horizontal scroll, shown first */}
+                    <div>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500/20 to-red-500/20 border border-orange-500/30">
+                                <TrendingUp className="h-5 w-5 text-orange-400" />
                             </div>
-                        );
-                    })}
-                </div>
-            </section>
+                            <div>
+                                <h2 className="text-2xl font-display font-bold">Trending Now</h2>
+                                <p className="text-sm text-muted-foreground">Top-rated games from the last 3 months</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border/50 hover:scrollbar-thumb-border">
+                            {trendingLoading
+                                ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+                                : trendingGames.length > 0
+                                    ? trendingGames.map((game) => <GameCard key={game.igdbId} game={game} showRating />)
+                                    : (
+                                        <div className="w-full text-center py-12">
+                                            <TrendingUp className="h-12 w-12 mx-auto text-muted-foreground/20 mb-3" />
+                                            <p className="text-muted-foreground">No trending games available right now</p>
+                                        </div>
+                                    )
+                            }
+                        </div>
+                    </div>
+
+                    {/* Most Anticipated + Coming Soon — side by side */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+                        {/* 🔥 Most Anticipated */}
+                        <div>
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-neon-purple/20 to-pink-500/20 border border-neon-purple/30">
+                                    <Flame className="h-5 w-5 text-neon-purple" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-display font-bold">Most Anticipated</h2>
+                                    <p className="text-sm text-muted-foreground">The most hyped upcoming releases</p>
+                                </div>
+                            </div>
+                            {anticipatedLoading ? (
+                                <div className="glass-card rounded-xl divide-y divide-border/30">
+                                    {Array.from({ length: 6 }).map((_, i) => <ListSkeleton key={i} />)}
+                                </div>
+                            ) : anticipatedGames.length > 0 ? (
+                                <>
+                                    <div className="glass-card rounded-xl divide-y divide-border/30">
+                                        {anticipatedGames.slice(0, showAllAnticipated ? undefined : INITIAL_COUNT).map((game) => (
+                                            <ListItem key={game.igdbId} game={game} />
+                                        ))}
+                                    </div>
+                                    {anticipatedGames.length > INITIAL_COUNT && (
+                                        <button
+                                            onClick={() => setShowAllAnticipated(!showAllAnticipated)}
+                                            className="mt-3 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-neon-purple border border-border/30 hover:border-neon-purple/30 hover:bg-neon-purple/5 transition-all"
+                                        >
+                                            {showAllAnticipated ? (
+                                                <><ChevronUp className="h-4 w-4" /> Show Less</>
+                                            ) : (
+                                                <><ChevronDown className="h-4 w-4" /> View More ({anticipatedGames.length - INITIAL_COUNT})</>
+                                            )}
+                                        </button>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="text-center py-12 glass-card rounded-xl">
+                                    <Flame className="h-12 w-12 mx-auto text-muted-foreground/20 mb-3" />
+                                    <p className="text-muted-foreground">No anticipated games available right now</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 📅 Coming Soon */}
+                        <div>
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-neon-cyan/20 to-blue-500/20 border border-neon-cyan/30">
+                                    <Clock className="h-5 w-5 text-neon-cyan" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-display font-bold">Coming Soon</h2>
+                                    <p className="text-sm text-muted-foreground">Releasing in the next 2 weeks</p>
+                                </div>
+                            </div>
+                            {comingSoonLoading ? (
+                                <div className="glass-card rounded-xl divide-y divide-border/30">
+                                    {Array.from({ length: 6 }).map((_, i) => <ListSkeleton key={i} />)}
+                                </div>
+                            ) : comingSoonGames.length > 0 ? (
+                                <>
+                                    <div className="glass-card rounded-xl divide-y divide-border/30">
+                                        {comingSoonGames.slice(0, showAllComingSoon ? undefined : INITIAL_COUNT).map((game) => (
+                                            <ListItem key={game.igdbId} game={game} />
+                                        ))}
+                                    </div>
+                                    {comingSoonGames.length > INITIAL_COUNT && (
+                                        <button
+                                            onClick={() => setShowAllComingSoon(!showAllComingSoon)}
+                                            className="mt-3 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-neon-cyan border border-border/30 hover:border-neon-cyan/30 hover:bg-neon-cyan/5 transition-all"
+                                        >
+                                            {showAllComingSoon ? (
+                                                <><ChevronUp className="h-4 w-4" /> Show Less</>
+                                            ) : (
+                                                <><ChevronDown className="h-4 w-4" /> View More ({comingSoonGames.length - INITIAL_COUNT})</>
+                                            )}
+                                        </button>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="text-center py-12 glass-card rounded-xl">
+                                    <Clock className="h-12 w-12 mx-auto text-muted-foreground/20 mb-3" />
+                                    <p className="text-muted-foreground">No games releasing in the next 2 weeks</p>
+                                </div>
+                            )}
+                        </div>
+
+                    </div>
+
+                </section>
+            )}
         </div>
     );
 }

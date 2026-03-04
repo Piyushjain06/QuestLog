@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { RecommendClient } from "./RecommendClient";
 import { getRecommendations } from "@/lib/recommender";
 
@@ -10,8 +13,15 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function RecommendPage() {
-    // Get first user for demo
-    const user = await prisma.user.findFirst();
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.email) {
+        redirect("/auth");
+    }
+
+    const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+    });
 
     let recommendations: Array<{
         id: string;

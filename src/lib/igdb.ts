@@ -76,6 +76,8 @@ export interface IGDBGame {
     summary?: string;
     first_release_date?: number;
     total_rating?: number;
+    hypes?: number;
+    follows?: number;
     genres?: { id: number; name: string }[];
     themes?: { id: number; name: string }[];
     platforms?: { id: number; name: string }[];
@@ -283,6 +285,110 @@ export async function getSimilarGamesFromIGDB(
         return rawGames.map(normalizeGame);
     } catch (error) {
         console.warn("Failed to fetch similar games from IGDB:", error);
+        return [];
+    }
+}
+
+/**
+ * Fetch trending games: highly-rated titles released in the last 3 months.
+ */
+export async function getTrendingGames(limit: number = 12): Promise<NormalizedGame[]> {
+    try {
+        const threeMonthsAgo = Math.floor((Date.now() - 90 * 24 * 60 * 60 * 1000) / 1000);
+        const now = Math.floor(Date.now() / 1000);
+
+        const query = `
+            fields ${STANDARD_FIELDS};
+            where first_release_date >= ${threeMonthsAgo}
+                & first_release_date <= ${now}
+                & version_parent = null
+                & cover != null
+                & total_rating_count >= 5;
+            sort total_rating desc;
+            limit ${limit};
+        `;
+
+        const rawGames: IGDBGame[] = await fetchIGDB("games", query);
+        return rawGames.map(normalizeGame);
+    } catch (error) {
+        console.warn("Failed to fetch trending games from IGDB:", error);
+        return [];
+    }
+}
+
+/**
+ * Fetch upcoming game releases: games with a future release date.
+ */
+export async function getUpcomingGames(limit: number = 12): Promise<NormalizedGame[]> {
+    try {
+        const now = Math.floor(Date.now() / 1000);
+        const oneYearFromNow = now + 365 * 24 * 60 * 60;
+
+        const query = `
+            fields ${STANDARD_FIELDS};
+            where first_release_date > ${now}
+                & first_release_date < ${oneYearFromNow}
+                & version_parent = null
+                & cover != null;
+            sort first_release_date asc;
+            limit ${limit};
+        `;
+
+        const rawGames: IGDBGame[] = await fetchIGDB("games", query);
+        return rawGames.map(normalizeGame);
+    } catch (error) {
+        console.warn("Failed to fetch upcoming games from IGDB:", error);
+        return [];
+    }
+}
+
+/**
+ * Fetch most anticipated games: upcoming titles sorted by hype/follows.
+ */
+export async function getMostAnticipatedGames(limit: number = 8): Promise<NormalizedGame[]> {
+    try {
+        const now = Math.floor(Date.now() / 1000);
+
+        const query = `
+            fields ${STANDARD_FIELDS}, hypes, follows;
+            where first_release_date > ${now}
+                & version_parent = null
+                & cover != null
+                & hypes > 1;
+            sort hypes desc;
+            limit ${limit};
+        `;
+
+        const rawGames: IGDBGame[] = await fetchIGDB("games", query);
+        return rawGames.map(normalizeGame);
+    } catch (error) {
+        console.warn("Failed to fetch most anticipated games from IGDB:", error);
+        return [];
+    }
+}
+
+/**
+ * Fetch coming soon games: releasing within the next 14 days.
+ */
+export async function getComingSoonGames(limit: number = 12): Promise<NormalizedGame[]> {
+    try {
+        const now = Math.floor(Date.now() / 1000);
+        const twoWeeksFromNow = now + 14 * 24 * 60 * 60;
+
+        const query = `
+            fields ${STANDARD_FIELDS};
+            where first_release_date >= ${now}
+                & first_release_date <= ${twoWeeksFromNow}
+                & version_parent = null
+                & cover != null;
+            sort first_release_date asc;
+            limit ${limit};
+        `;
+
+        const rawGames: IGDBGame[] = await fetchIGDB("games", query);
+        return rawGames.map(normalizeGame);
+    } catch (error) {
+        console.warn("Failed to fetch coming soon games from IGDB:", error);
         return [];
     }
 }
