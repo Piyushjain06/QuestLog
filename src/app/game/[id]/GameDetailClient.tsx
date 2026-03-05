@@ -22,6 +22,11 @@ import {
     Heart,
     Sparkles,
     ShieldAlert,
+    ImageIcon,
+    Play,
+    ChevronLeft,
+    ChevronRight,
+    X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +41,7 @@ interface Game {
     coverUrl: string | null;
     bannerUrl: string | null;
     steamAppId: string | null;
+    igdbId: string | null;
     genres: string;
     tags: string;
     platforms: string;
@@ -100,6 +106,10 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn, sim
     const [trailerLoading, setTrailerLoading] = useState(true);
     const [rating, setRating] = useState<number | null>(libraryEntry?.userRating ?? null);
     const [hoverRating, setHoverRating] = useState<number | null>(null);
+    const [mediaTab, setMediaTab] = useState<"trailer" | "screenshots">("trailer");
+    const [screenshots, setScreenshots] = useState<string[]>([]);
+    const [screenshotsLoading, setScreenshotsLoading] = useState(true);
+    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
     // NSFW age-gate
     const nsfwKeywords = ["erotic", "sexual content", "nudity", "hentai"];
@@ -123,8 +133,28 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn, sim
                 setTrailerLoading(false);
             }
         };
+
+        const fetchScreenshots = async () => {
+            if (!game.igdbId) {
+                setScreenshotsLoading(false);
+                return;
+            }
+            try {
+                const res = await fetch(`/api/igdb/screenshots?igdbId=${game.igdbId}`);
+                const data = await res.json();
+                if (data.images && data.images.length > 0) {
+                    setScreenshots(data.images.map((id: string) => `${data.baseUrl}${id}.jpg`));
+                }
+            } catch {
+                // Silently fail
+            } finally {
+                setScreenshotsLoading(false);
+            }
+        };
+
         fetchTrailer();
-    }, [game.title]);
+        fetchScreenshots();
+    }, [game.title, game.igdbId]);
 
     const handleAddToLibrary = async () => {
         setAdding(true);
@@ -574,51 +604,160 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn, sim
                 </div>
             </div>
 
-            {/* YouTube Trailer */}
+            {/* Media Section — Trailer & Screenshots */}
             <div className="space-y-4">
-                <h2 className="text-xl font-display font-bold flex items-center gap-2">
-                    <svg className="h-6 w-6 text-red-500" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                    </svg>
-                    Game Trailer
-                </h2>
-                {trailerLoading ? (
-                    <div className="glass-card rounded-xl flex items-center justify-center" style={{ aspectRatio: "16/9" }}>
-                        <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                            <Loader2 className="h-8 w-8 animate-spin text-neon-cyan" />
-                            <span className="text-sm">Loading trailer...</span>
-                        </div>
-                    </div>
-                ) : trailerVideoId ? (
-                    <div className="glass-card overflow-hidden rounded-xl">
-                        <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-                            <iframe
-                                className="absolute inset-0 w-full h-full"
-                                src={`https://www.youtube-nocookie.com/embed/${trailerVideoId}?rel=0`}
-                                title={`${game.title} Trailer`}
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowFullScreen
-                            />
-                        </div>
-                    </div>
-                ) : (
-                    <div className="glass-card rounded-xl p-8 flex flex-col items-center gap-3">
-                        <svg className="h-12 w-12 text-muted-foreground/50" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                        </svg>
-                        <p className="text-sm text-muted-foreground">No trailer found</p>
+                {/* Tab buttons */}
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setMediaTab("trailer")}
+                        className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 border ${mediaTab === "trailer"
+                                ? "bg-red-500/15 text-red-400 border-red-500/30 shadow-sm shadow-red-500/10"
+                                : "bg-card/50 text-muted-foreground border-white/5 hover:bg-card/80 hover:text-foreground"
+                            }`}
+                    >
+                        <Play className="h-4 w-4" />
+                        Trailer
+                    </button>
+                    <button
+                        onClick={() => setMediaTab("screenshots")}
+                        className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 border ${mediaTab === "screenshots"
+                                ? "bg-neon-cyan/15 text-neon-cyan border-neon-cyan/30 shadow-sm shadow-neon-cyan/10"
+                                : "bg-card/50 text-muted-foreground border-white/5 hover:bg-card/80 hover:text-foreground"
+                            }`}
+                    >
+                        <ImageIcon className="h-4 w-4" />
+                        Screenshots
+                        {screenshots.length > 0 && (
+                            <span className="text-xs bg-neon-cyan/20 px-1.5 py-0.5 rounded-full">{screenshots.length}</span>
+                        )}
+                    </button>
+                </div>
+
+                {/* Trailer Tab */}
+                {mediaTab === "trailer" && (
+                    <div className="space-y-3 animate-fade-in">
+                        {trailerLoading ? (
+                            <div className="glass-card rounded-xl flex items-center justify-center" style={{ aspectRatio: "16/9" }}>
+                                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                    <Loader2 className="h-8 w-8 animate-spin text-neon-cyan" />
+                                    <span className="text-sm">Loading trailer...</span>
+                                </div>
+                            </div>
+                        ) : trailerVideoId ? (
+                            <div className="glass-card overflow-hidden rounded-xl">
+                                <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                                    <iframe
+                                        className="absolute inset-0 w-full h-full"
+                                        src={`https://www.youtube-nocookie.com/embed/${trailerVideoId}?rel=0`}
+                                        title={`${game.title} Trailer`}
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="glass-card rounded-xl p-8 flex flex-col items-center gap-3">
+                                <svg className="h-12 w-12 text-muted-foreground/50" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                                </svg>
+                                <p className="text-sm text-muted-foreground">No trailer found</p>
+                            </div>
+                        )}
+                        <a
+                            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(game.title + " official trailer")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-neon-cyan transition-colors"
+                        >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Watch more on YouTube
+                        </a>
                     </div>
                 )}
-                <a
-                    href={`https://www.youtube.com/results?search_query=${encodeURIComponent(game.title + " official trailer")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-neon-cyan transition-colors"
-                >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Watch more on YouTube
-                </a>
+
+                {/* Screenshots Tab */}
+                {mediaTab === "screenshots" && (
+                    <div className="space-y-3 animate-fade-in">
+                        {screenshotsLoading ? (
+                            <div className="glass-card rounded-xl flex items-center justify-center py-16">
+                                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                    <Loader2 className="h-8 w-8 animate-spin text-neon-cyan" />
+                                    <span className="text-sm">Loading screenshots...</span>
+                                </div>
+                            </div>
+                        ) : screenshots.length > 0 ? (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {screenshots.map((url, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setLightboxIndex(idx)}
+                                        className="relative aspect-video rounded-xl overflow-hidden glass-card border border-border/30 hover:border-neon-cyan/40 transition-all duration-300 group cursor-pointer"
+                                    >
+                                        <Image
+                                            src={url}
+                                            alt={`${game.title} screenshot ${idx + 1}`}
+                                            fill
+                                            className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                            sizes="(max-width: 768px) 50vw, 33vw"
+                                            unoptimized
+                                        />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300" />
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="glass-card rounded-xl p-8 flex flex-col items-center gap-3">
+                                <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+                                <p className="text-sm text-muted-foreground">No screenshots available</p>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
+
+            {/* Screenshot Lightbox */}
+            {lightboxIndex !== null && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center animate-fade-in"
+                    onClick={() => setLightboxIndex(null)}
+                >
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setLightboxIndex(null); }}
+                        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all z-10"
+                    >
+                        <X className="h-6 w-6" />
+                    </button>
+                    {lightboxIndex > 0 && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setLightboxIndex(lightboxIndex - 1); }}
+                            className="absolute left-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all z-10"
+                        >
+                            <ChevronLeft className="h-8 w-8" />
+                        </button>
+                    )}
+                    {lightboxIndex < screenshots.length - 1 && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setLightboxIndex(lightboxIndex + 1); }}
+                            className="absolute right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all z-10"
+                        >
+                            <ChevronRight className="h-8 w-8" />
+                        </button>
+                    )}
+                    <div className="relative w-[90vw] max-w-5xl aspect-video" onClick={(e) => e.stopPropagation()}>
+                        <Image
+                            src={screenshots[lightboxIndex]}
+                            alt={`${game.title} screenshot ${lightboxIndex + 1}`}
+                            fill
+                            className="object-contain"
+                            sizes="90vw"
+                            unoptimized
+                        />
+                    </div>
+                    <div className="absolute bottom-4 text-white/60 text-sm">
+                        {lightboxIndex + 1} / {screenshots.length}
+                    </div>
+                </div>
+            )}
 
             {/* Content grid */}
             <div className="grid lg:grid-cols-3 gap-8">
