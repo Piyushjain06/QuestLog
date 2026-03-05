@@ -1,38 +1,19 @@
 import { NextResponse } from "next/server";
-const IGDB_BASE = "https://api.igdb.com/v4";
-const TWITCH_OAUTH_URL = "https://id.twitch.tv/oauth2/token";
-
-async function getAccessToken(): Promise<string> {
-    const params = new URLSearchParams({
-        client_id: process.env.TWITCH_CLIENT_ID!,
-        client_secret: process.env.TWITCH_CLIENT_SECRET!,
-        grant_type: "client_credentials",
-    });
-    const res = await fetch(`${TWITCH_OAUTH_URL}?${params}`, { method: "POST" });
-    const data = await res.json();
-    return data.access_token;
-}
+import { getTrendingGames, getMostAnticipatedGames, getComingSoonGames, getRecommendedGames } from "@/lib/igdb";
 
 export async function GET() {
     try {
-        const token = await getAccessToken();
-        const query = `
-            fields *;
-            where id = 1942;
-        `;
-        const res = await fetch(`${IGDB_BASE}/games`, {
-            method: "POST",
-            headers: {
-                "Client-ID": process.env.TWITCH_CLIENT_ID!,
-                "Authorization": `Bearer ${token}`,
-                "Accept": "application/json",
-                "Content-Type": "text/plain",
-            },
-            body: query,
+        const trending = await getTrendingGames(3);
+        const anticipated = await getMostAnticipatedGames(3);
+        const comingSoon = await getComingSoonGames(3);
+        const recommended = await getRecommendedGames(["RPG", "Adventure"], [], 3);
+        return NextResponse.json({
+            trending,
+            anticipated,
+            comingSoon,
+            recommended
         });
-        const data = await res.json();
-        return NextResponse.json(data);
     } catch (e: any) {
-        return NextResponse.json({ error: e.message });
+        return NextResponse.json({ error: e.message, stack: e.stack });
     }
 }

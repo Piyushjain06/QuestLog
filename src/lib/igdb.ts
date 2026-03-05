@@ -31,6 +31,7 @@ async function getAccessToken(): Promise<string> {
 
     const res = await fetch(`${TWITCH_OAUTH_URL}?${params}`, {
         method: "POST",
+        cache: "no-store",
     });
 
     if (!res.ok) {
@@ -46,7 +47,7 @@ async function getAccessToken(): Promise<string> {
 
 // ── Generic API call ────────────────────────────────────────────────────────
 
-async function fetchIGDB(endpoint: string, query: string) {
+async function fetchIGDB(endpoint: string, query: string, retryCount = 0): Promise<any> {
     const token = await getAccessToken();
     const { clientId } = getCredentials();
 
@@ -59,9 +60,16 @@ async function fetchIGDB(endpoint: string, query: string) {
             "Content-Type": "text/plain", // Apicalypse syntax is sent as plain text
         },
         body: query,
+        cache: "no-store",
     });
 
     if (!res.ok) {
+        if (res.status === 401 && retryCount === 0) {
+            // Token might be expired or revoked, reset it and retry once
+            accessToken = null;
+            tokenExpiry = 0;
+            return fetchIGDB(endpoint, query, 1);
+        }
         throw new Error(`IGDB API returned ${res.status}: ${res.statusText}`);
     }
 
