@@ -145,24 +145,52 @@ const STANDARD_FIELDS = "name, summary, first_release_date, total_rating, genres
 export async function searchGames(
     name: string,
     limit: number = 20,
-    offset: number = 0
+    offset: number = 0,
+    genres: string[] = [],
+    themes: string[] = []
 ): Promise<{ games: NormalizedGame[]; count: number }> {
-    // Escape quotes in the search term
-    const safeName = name.replace(/"/g, '\\"');
+    // Build dynamic where conditions
+    const whereParts: string[] = ["version_parent = null"];
 
-    // Using IGDB's text search. We filter for only main games, remakes, remasters, ports
-    const query = `
-        search "${safeName}";
-        fields ${STANDARD_FIELDS};
-        where version_parent = null;
-        limit ${limit};
-        offset ${offset};
-    `;
+    if (genres.length > 0) {
+        const genreConditions = genres.map((g) => `genres.name ~ *"${g}"*`).join(" | ");
+        whereParts.push(`(${genreConditions})`);
+    }
+
+    if (themes.length > 0) {
+        const themeConditions = themes.map((t) => `themes.name ~ *"${t}"*`).join(" | ");
+        whereParts.push(`(${themeConditions})`);
+    }
+
+    const whereClause = whereParts.join(" & ");
+    const hasTextSearch = name.trim().length > 0;
+
+    let query: string;
+
+    if (hasTextSearch) {
+        // Escape quotes in the search term
+        const safeName = name.replace(/"/g, '\\"');
+        // Using IGDB's text search combined with optional genre/theme filters
+        query = `
+            search "${safeName}";
+            fields ${STANDARD_FIELDS};
+            where ${whereClause};
+            limit ${limit};
+            offset ${offset};
+        `;
+    } else {
+        // No text search — browse by genre/theme filters, sorted by rating
+        query = `
+            fields ${STANDARD_FIELDS};
+            where ${whereClause} & cover != null & total_rating_count >= 3;
+            sort total_rating desc;
+            limit ${limit};
+            offset ${offset};
+        `;
+    }
 
     const rawGames: IGDBGame[] = await fetchIGDB("games", query);
 
-    // Since we can't easily get the total search count with 'search' keyword without a separate query,
-    // we'll just say there's more if we got a full page
     return {
         games: rawGames.map(normalizeGame),
         count: rawGames.length === limit ? offset + limit + 1 : offset + rawGames.length

@@ -45,20 +45,28 @@ async function searchLocalDB(query: string) {
 }
 
 export async function GET(req: NextRequest) {
-    const q = req.nextUrl.searchParams.get("q");
+    const q = req.nextUrl.searchParams.get("q") ?? "";
     const offset = parseInt(req.nextUrl.searchParams.get("offset") ?? "0", 10);
+    const limit = Math.min(parseInt(req.nextUrl.searchParams.get("limit") ?? "50", 10), 500);
+    const genresParam = req.nextUrl.searchParams.get("genres") ?? "";
+    const themesParam = req.nextUrl.searchParams.get("themes") ?? "";
 
-    if (!q || q.trim().length === 0) {
+    const genres = genresParam ? genresParam.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    const themes = themesParam ? themesParam.split(",").map((s) => s.trim()).filter(Boolean) : [];
+
+    const query = q.trim();
+    const hasFilters = genres.length > 0 || themes.length > 0;
+
+    if (query.length === 0 && !hasFilters) {
         return NextResponse.json({ games: [], count: 0 });
     }
 
-    const query = q.trim();
     let igdbUnavailable = false;
     let igdbError = "";
 
     // Try IGDB first
     try {
-        const result = await searchGames(query, 20, offset);
+        const result = await searchGames(query, limit, offset, genres, themes);
 
         if (result.games.length > 0) {
             return NextResponse.json({ ...result, source: "igdb" });

@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Check, Loader2, Gamepad2, ExternalLink, TrendingUp, Calendar, Star, Clock, Flame, ChevronDown, ChevronUp, Sparkles, Library } from "lucide-react";
+import { Search, Plus, Check, Loader2, Gamepad2, ExternalLink, TrendingUp, Calendar, Star, Clock, Flame, ChevronDown, ChevronUp, Sparkles, Library, Filter, X } from "lucide-react";
 import Link from "next/link";
 import { RecommendationCard } from "@/components/RecommendationCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { IGDB_GENRES, IGDB_THEMES } from "@/lib/igdb-constants";
 
 interface IGDBGame {
     igdbId: number;
@@ -63,9 +64,15 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
     const [warning, setWarning] = useState<string | null>(null);
     const [platformFilter, setPlatformFilter] = useState("ALL");
     const [navigatingId, setNavigatingId] = useState<number | null>(null);
+    const [selectedGenre, setSelectedGenre] = useState("");
+    const [selectedTheme, setSelectedTheme] = useState("");
+    const [searchOffset, setSearchOffset] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const router = useRouter();
 
     const [source, setSource] = useState<string>("igdb");
+    const PAGE_SIZE = 50;
 
     // Section data state
     const [trendingGames, setTrendingGames] = useState<IGDBGame[]>([]);
@@ -98,43 +105,75 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
     }, []);
 
     // Debounced search
-    const searchGames = useCallback(async (q: string) => {
-        if (q.trim().length < 2) {
+    const searchGames = useCallback(async (q: string, genre: string, theme: string, offset: number = 0, append: boolean = false) => {
+        const hasText = q.trim().length >= 2;
+        const hasFilters = genre.length > 0 || theme.length > 0;
+        if (!hasText && !hasFilters) {
             setResults([]);
+            setHasMore(false);
             return;
         }
-        setLoading(true);
+        if (append) {
+            setLoadingMore(true);
+        } else {
+            setLoading(true);
+        }
         setError(null);
         setWarning(null);
         try {
-            const res = await fetch(`/api/igdb/search?q=${encodeURIComponent(q)}`);
+            const params = new URLSearchParams();
+            if (hasText) params.set("q", q);
+            if (genre) params.set("genres", genre);
+            if (theme) params.set("themes", theme);
+            params.set("limit", String(PAGE_SIZE));
+            params.set("offset", String(offset));
+            const res = await fetch(`/api/igdb/search?${params.toString()}`);
             const data = await res.json();
             if (data.error) {
                 setError(data.error);
-                setResults([]);
+                if (!append) setResults([]);
+                setHasMore(false);
             } else {
-                setResults(data.games ?? []);
+                const newGames = data.games ?? [];
+                if (append) {
+                    setResults((prev) => [...prev, ...newGames]);
+                } else {
+                    setResults(newGames);
+                }
                 setSource(data.source || "igdb");
+                setHasMore(newGames.length >= PAGE_SIZE);
                 if (data.warning) setWarning(data.warning);
             }
         } catch {
             setError("Search failed. Check your connection.");
-            setResults([]);
+            if (!append) setResults([]);
+            setHasMore(false);
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
     }, []);
 
     useEffect(() => {
+        setSearchOffset(0);
+        setHasMore(false);
         const timeout = setTimeout(() => {
-            if (query.trim().length >= 2) {
-                searchGames(query);
+            const hasText = query.trim().length >= 2;
+            const hasFilters = selectedGenre.length > 0 || selectedTheme.length > 0;
+            if (hasText || hasFilters) {
+                searchGames(query, selectedGenre, selectedTheme, 0, false);
             } else {
                 setResults([]);
             }
         }, 400);
         return () => clearTimeout(timeout);
-    }, [query, searchGames]);
+    }, [query, selectedGenre, selectedTheme, searchGames]);
+
+    const loadMore = () => {
+        const nextOffset = searchOffset + PAGE_SIZE;
+        setSearchOffset(nextOffset);
+        searchGames(query, selectedGenre, selectedTheme, nextOffset, true);
+    };
 
     const filteredResults = platformFilter === "ALL"
         ? results
@@ -144,7 +183,7 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
             )
         );
 
-    const isSearching = query.trim().length >= 2;
+    const isSearching = query.trim().length >= 2 || selectedGenre.length > 0 || selectedTheme.length > 0;
 
     const addToLibrary = async (game: IGDBGame) => {
         setAddingId(game.igdbId);
@@ -348,6 +387,47 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
                         </div>
                     </div>
 
+                    {/* Genre & Theme Filter Dropdowns */}
+                    <div className="flex flex-wrap items-center justify-center gap-3 max-w-2xl mx-auto mb-5">
+                        <div className="relative">
+                            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                            <select
+                                value={selectedGenre}
+                                onChange={(e) => setSelectedGenre(e.target.value)}
+                                className="appearance-none pl-9 pr-8 py-2.5 rounded-lg bg-card/80 border border-border/50 text-foreground text-sm font-medium focus:outline-none focus:ring-2 focus:ring-neon-cyan/50 focus:border-neon-cyan/50 backdrop-blur-sm transition-all cursor-pointer min-w-[160px]"
+                            >
+                                <option value="">All Genres</option>
+                                {IGDB_GENRES.map((g) => (
+                                    <option key={g} value={g}>{g}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        </div>
+                        <div className="relative">
+                            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                            <select
+                                value={selectedTheme}
+                                onChange={(e) => setSelectedTheme(e.target.value)}
+                                className="appearance-none pl-9 pr-8 py-2.5 rounded-lg bg-card/80 border border-border/50 text-foreground text-sm font-medium focus:outline-none focus:ring-2 focus:ring-neon-cyan/50 focus:border-neon-cyan/50 backdrop-blur-sm transition-all cursor-pointer min-w-[160px]"
+                            >
+                                <option value="">All Themes</option>
+                                {IGDB_THEMES.map((t) => (
+                                    <option key={t} value={t}>{t}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        </div>
+                        {(selectedGenre || selectedTheme) && (
+                            <button
+                                onClick={() => { setSelectedGenre(""); setSelectedTheme(""); }}
+                                className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                                Clear Filters
+                            </button>
+                        )}
+                    </div>
+
                     {isSearching && (
                         <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto animate-fade-in">
                             {PLATFORM_FILTERS.map((pf) => (
@@ -458,6 +538,22 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
                             );
                         })}
                     </div>
+                    {/* Load More Button */}
+                    {hasMore && !loading && (
+                        <div className="flex justify-center mt-8">
+                            <button
+                                onClick={loadMore}
+                                disabled={loadingMore}
+                                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/30 hover:bg-neon-cyan/20 hover:shadow-lg hover:shadow-neon-cyan/10 transition-all duration-300 disabled:opacity-50"
+                            >
+                                {loadingMore ? (
+                                    <><Loader2 className="h-4 w-4 animate-spin" /> Loading more…</>
+                                ) : (
+                                    <><ChevronDown className="h-4 w-4" /> Load More Results</>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </section>
             )}
 
