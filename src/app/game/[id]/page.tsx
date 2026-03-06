@@ -2,8 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getSimilarGames } from "@/lib/recommender";
-import { getGameById, getSimilarGamesFromIGDB } from "@/lib/igdb";
+import { getGameById, getSimilarGamesFromIGDB, getExtendedGameDetailsFromIGDB } from "@/lib/igdb";
 import { GameDetailClient } from "./GameDetailClient";
 
 export const dynamic = "force-dynamic";
@@ -47,10 +46,13 @@ export default async function GameDetailPage({ params }: { params: { id: string 
         }
     }
 
-    // Fetch similar games from IGDB API
     const similarGamesPromise = game.igdbId
         ? getSimilarGamesFromIGDB(Number(game.igdbId), 5)
         : Promise.resolve([]);
+
+    const extendedDetailsPromise = game.igdbId
+        ? getExtendedGameDetailsFromIGDB(Number(game.igdbId))
+        : Promise.resolve({ releases: [], websites: [], timeToBeat: null });
 
     const session = await getServerSession(authOptions);
     let missionProgress: Record<string, boolean> = {};
@@ -72,8 +74,9 @@ export default async function GameDetailPage({ params }: { params: { id: string 
         }
     }
 
-    const [similarGames, missionsWithProgress] = await Promise.all([
+    const [similarGames, extendedDetails, missionsWithProgress] = await Promise.all([
         similarGamesPromise,
+        extendedDetailsPromise,
         Promise.resolve(game.missions.map((m) => ({
             ...m,
             completed: missionProgress[m.id] ?? false,
@@ -87,6 +90,7 @@ export default async function GameDetailPage({ params }: { params: { id: string 
             libraryEntry={libraryEntry ? JSON.parse(JSON.stringify(libraryEntry)) : null}
             isLoggedIn={isLoggedIn}
             similarGames={JSON.parse(JSON.stringify(similarGames))}
+            extendedDetails={JSON.parse(JSON.stringify(extendedDetails))}
         />
     );
 }

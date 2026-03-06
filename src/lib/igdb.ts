@@ -47,7 +47,7 @@ async function getAccessToken(): Promise<string> {
 
 // ── Generic API call ────────────────────────────────────────────────────────
 
-async function fetchIGDB(endpoint: string, query: string, retryCount = 0): Promise<any> {
+export async function fetchIGDB(endpoint: string, query: string, retryCount = 0): Promise<any> {
     const token = await getAccessToken();
     const { clientId } = getCredentials();
 
@@ -109,6 +109,29 @@ export interface NormalizedGame {
     developers: string[];
     publishers: string[];
     platforms: string[];
+}
+
+export interface IGDBReleaseDate {
+    platform: string;
+    date: string;
+    year: number;
+}
+
+export interface IGDBWebsite {
+    category: number;
+    url: string;
+}
+
+export interface IGDBTimeToBeat {
+    hastily: number;
+    normally: number;
+    completely: number;
+}
+
+export interface ExtendedGameDetails {
+    releases: IGDBReleaseDate[];
+    websites: IGDBWebsite[];
+    timeToBeat: IGDBTimeToBeat | null;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -466,5 +489,69 @@ export async function getComingSoonGames(limit: number = 12): Promise<Normalized
     } catch (error) {
         console.warn("Failed to fetch coming soon games from IGDB:", error);
         return [];
+    }
+}
+
+/**
+ * Fetch extended game details (releases, websites, time to beat)
+ */
+export async function getExtendedGameDetailsFromIGDB(igdbId: number): Promise<ExtendedGameDetails> {
+    try {
+        const queryGames = "fields websites.url, websites.category, release_dates.human, release_dates.platform.name, release_dates.y; where id = " + igdbId + ";";
+        const gamesRes = await fetchIGDB("games", queryGames);
+
+        const queryTTB = "fields hastily, normally, completely; where game_id = " + igdbId + ";";
+        let ttbRes = [];
+        try {
+            ttbRes = await fetchIGDB("game_time_to_beats", queryTTB);
+        } catch (e) {
+            console.warn("Failed to fetch time to beat", e);
+        }
+
+        const game = gamesRes[0];
+
+        let releases: IGDBReleaseDate[] = [];
+        if (game?.release_dates) {
+            // Deduplicate by platform
+            const seenPlatforms = new Set<string>();
+            for (const rd of game.release_dates) {
+                if (!rd.platform?.name || !rd.human || !rd.y) continue;
+                if (seenPlatforms.has(rd.platform.name)) continue;
+
+                seenPlatforms.add(rd.platform.name);
+                releases.push({
+                    platform: rd.platform.name,
+                    date: rd.human,
+                    year: rd.y
+                });
+            }
+        }
+
+        let websites: IGDBWebsite[] = [];
+        if (game?.websites) {
+            websites = game.websites.map((w: any) => ({
+                category: w.category,
+                url: w.url
+            }));
+        }
+
+        let timeToBeat: IGDBTimeToBeat | null = null;
+        if (ttbRes && ttbRes.length > 0) {
+            const ttb = ttbRes[0];
+            timeToBeat = {
+                hastily: ttb.hastily || 0,
+                normally: ttb.normally || 0,
+                completely: ttb.completely || 0
+            };
+        }
+
+        return {
+            releases,
+            websites,
+            timeToBeat
+        };
+    } catch (error) {
+        console.warn("Failed to fetch extended game details from IGDB:", error);
+        return { releases: [], websites: [], timeToBeat: null };
     }
 }

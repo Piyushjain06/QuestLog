@@ -27,6 +27,9 @@ import {
     ChevronLeft,
     ChevronRight,
     X,
+    Globe,
+    Monitor,
+    Gamepad
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -81,15 +84,39 @@ interface SimilarGame {
     rating?: string | null;
 }
 
+interface IGDBReleaseDate {
+    platform: string;
+    date: string;
+    year: number;
+}
+
+interface IGDBWebsite {
+    category: number;
+    url: string;
+}
+
+interface IGDBTimeToBeat {
+    hastily: number;
+    normally: number;
+    completely: number;
+}
+
+interface ExtendedGameDetails {
+    releases: IGDBReleaseDate[];
+    websites: IGDBWebsite[];
+    timeToBeat: IGDBTimeToBeat | null;
+}
+
 interface GameDetailClientProps {
     game: Game;
     missions: Mission[];
     libraryEntry: LibraryEntry | null;
     isLoggedIn: boolean;
     similarGames: SimilarGame[];
+    extendedDetails?: ExtendedGameDetails;
 }
 
-export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn, similarGames }: GameDetailClientProps) {
+export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn, similarGames, extendedDetails }: GameDetailClientProps) {
     const genres = parseJsonField<string[]>(game.genres, []);
     const tags = parseJsonField<string[]>(game.tags, []);
     const platforms = parseJsonField<string[]>(game.platforms, []);
@@ -611,8 +638,8 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn, sim
                     <button
                         onClick={() => setMediaTab("trailer")}
                         className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 border ${mediaTab === "trailer"
-                                ? "bg-red-500/15 text-red-400 border-red-500/30 shadow-sm shadow-red-500/10"
-                                : "bg-card/50 text-muted-foreground border-white/5 hover:bg-card/80 hover:text-foreground"
+                            ? "bg-red-500/15 text-red-400 border-red-500/30 shadow-sm shadow-red-500/10"
+                            : "bg-card/50 text-muted-foreground border-white/5 hover:bg-card/80 hover:text-foreground"
                             }`}
                     >
                         <Play className="h-4 w-4" />
@@ -621,8 +648,8 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn, sim
                     <button
                         onClick={() => setMediaTab("screenshots")}
                         className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 border ${mediaTab === "screenshots"
-                                ? "bg-neon-cyan/15 text-neon-cyan border-neon-cyan/30 shadow-sm shadow-neon-cyan/10"
-                                : "bg-card/50 text-muted-foreground border-white/5 hover:bg-card/80 hover:text-foreground"
+                            ? "bg-neon-cyan/15 text-neon-cyan border-neon-cyan/30 shadow-sm shadow-neon-cyan/10"
+                            : "bg-card/50 text-muted-foreground border-white/5 hover:bg-card/80 hover:text-foreground"
                             }`}
                     >
                         <ImageIcon className="h-4 w-4" />
@@ -799,55 +826,103 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn, sim
                                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658a3.387 3.387 0 0 1 1.912-.59c.064 0 .127.003.19.008l2.861-4.142V8.91a4.528 4.528 0 0 1 4.524-4.524c2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396a3.406 3.406 0 0 1-3.362-2.898L.309 15.044C1.59 20.152 6.293 24 11.979 24c6.627 0 12-5.373 12-12S18.605 0 11.979 0z" />
                                     </svg>
-                                    Steam Store
-                                    <ExternalLink className="h-3 w-3 ml-auto" />
+                                    View on Steam
                                 </Button>
                             </a>
-                            <a
-                                href={`https://store.epicgames.com/browse?q=${encodeURIComponent(game.title)}&sortBy=relevancy`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
+                            <a href={walkthroughUrl} target="_blank" rel="noopener noreferrer">
                                 <Button variant="outline" className="w-full gap-2 justify-start mt-2">
-                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M3.537 0C2.165 0 1.66.506 1.66 1.879V18.44a4.262 4.262 0 0 0 .04.603c.12.81.602 1.455 1.266 1.736l8.397 3.842c.238.147.497.221.756.221h.045c.27-.012.508-.09.72-.221l.018-.012 8.397-3.842c.672-.284 1.148-.926 1.268-1.736a4.109 4.109 0 0 0 .039-.603V1.879C22.606.506 22.1 0 20.73 0ZM15.6 3.123h.96c1.57 0 2.424.852 2.424 2.182v1.49h-1.452v-1.49c0-.67-.288-.97-.888-.97h-.36c-.6 0-.888.3-.888.97v5.4c0 .67.288.97.888.97h.36c.6 0 .888-.3.888-.97V9.225h1.452v1.49c0 1.33-.852 2.182-2.424 2.182h-.96c-1.572 0-2.424-.852-2.424-2.182v-5.4c0-1.33.852-2.182 2.424-2.182Zm-10.2 0h1.512v9.774H5.4Zm2.976 0h2.028c1.572 0 2.424.852 2.424 2.182v1.89c0 1.332-.852 2.184-2.424 2.184H8.04v3.518H6.564V3.123Zm1.476 1.212v3.83h.468c.6 0 .888-.298.888-.968V5.303c0-.67-.288-.968-.888-.968Zm-4.452 0v7.35h.444c.6 0 .888-.3.888-.97v-5.41c0-.67-.288-.97-.888-.97Z" />
-                                    </svg>
-                                    Epic Games Store
-                                    <ExternalLink className="h-3 w-3 ml-auto" />
+                                    <HelpCircle className="h-4 w-4" />
+                                    Find Walkthrough
                                 </Button>
                             </a>
                         </div>
                     </div>
 
-                    {/* Need Help? */}
-                    <div className="glass-card p-4 space-y-3">
-                        <h3 className="font-display font-semibold flex items-center gap-2">
-                            <HelpCircle className="h-5 w-5 text-neon-orange" />
-                            Need Help?
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                            Find walkthroughs, guides, and tips for {game.title}.
-                        </p>
-                        <a href={walkthroughUrl} target="_blank" rel="noopener noreferrer">
-                            <Button variant="outline" className="w-full gap-2">
-                                <ExternalLink className="h-4 w-4" />
-                                Find Walkthrough
-                            </Button>
-                        </a>
-                    </div>
+                    {/* Extended Details UI */}
+                    {extendedDetails && (
+                        <div className="space-y-4">
+                            {/* Releases */}
+                            {extendedDetails.releases.length > 0 && (
+                                <div className="glass-card p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-display font-semibold flex items-center gap-2">
+                                            <Calendar className="h-5 w-5 text-neon-orange" />
+                                            Releases
+                                        </h3>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        {extendedDetails.releases.slice(0, 4).map((r, i) => (
+                                            <div key={i} className="flex justify-between items-center text-sm">
+                                                <span className="text-muted-foreground">{r.platform}</span>
+                                                <span className="font-semibold">{r.date}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
+                            {/* Time to Beat */}
+                            {extendedDetails.timeToBeat && (
+                                <div className="glass-card p-4 space-y-3">
+                                    <h3 className="font-display font-semibold flex items-center gap-2">
+                                        <Clock className="h-5 w-5 text-neon-purple" />
+                                        Time to beat
+                                    </h3>
+                                    <div className="grid grid-cols-3 gap-2 text-center">
+                                        <div className="space-y-1">
+                                            <div className="text-xs text-muted-foreground">Hastily</div>
+                                            <div className="bg-neon-purple/20 text-neon-purple font-bold py-2 rounded-lg text-lg">
+                                                {Math.round(extendedDetails.timeToBeat.hastily / 3600)} H
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="text-xs text-muted-foreground">Normally</div>
+                                            <div className="bg-neon-purple/20 text-neon-purple font-bold py-2 rounded-lg text-lg">
+                                                {Math.round(extendedDetails.timeToBeat.normally / 3600)} H
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="text-xs text-muted-foreground">Completely</div>
+                                            <div className="bg-neon-purple/20 text-neon-purple font-bold py-2 rounded-lg text-lg">
+                                                {Math.round(extendedDetails.timeToBeat.completely / 3600)} H
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
-                    {/* Platforms */}
-                    {platforms.length > 0 && (
-                        <div className="glass-card p-4 space-y-3">
-                            <h3 className="font-display font-semibold">Platforms</h3>
-                            <div className="flex flex-wrap gap-2">
-                                {platforms.map((p) => (
-                                    <Badge key={p} variant="outline">
-                                        {p}
-                                    </Badge>
-                                ))}
-                            </div>
+                            {/* Links */}
+                            {extendedDetails.websites.length > 0 && (
+                                <div className="glass-card p-4 space-y-3">
+                                    <h3 className="font-display font-semibold flex items-center gap-2">
+                                        <Globe className="h-5 w-5 text-neon-cyan" />
+                                        Links
+                                    </h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {extendedDetails.websites.map((w, i) => {
+                                            // Provide simple icon overrides based on typical IGDB categories or URL matches
+                                            let IconComp = ExternalLink;
+                                            let bgClass = "bg-card hover:bg-muted";
+                                            if (w.url.includes("steam")) { IconComp = Monitor; bgClass = "bg-[#171a21]/50 hover:bg-[#171a21] text-white"; }
+                                            else if (w.url.includes("epicgames")) { IconComp = Monitor; bgClass = "bg-[#2a2a2a]/50 hover:bg-[#2a2a2a] text-white"; }
+                                            else if (w.url.includes("xbox")) { IconComp = Gamepad; bgClass = "bg-[#107C10]/20 hover:bg-[#107C10]/40 text-[#107C10]"; }
+                                            else if (w.url.includes("playstation")) { IconComp = Gamepad; bgClass = "bg-[#00439C]/20 hover:bg-[#00439C]/40 text-[#00439C]"; }
+                                            else if (w.url.includes("nintendo")) { IconComp = Gamepad; bgClass = "bg-[#E60012]/20 hover:bg-[#E60012]/40 text-[#E60012]"; }
+                                            else if (w.url.includes("twitter")) { IconComp = Globe; bgClass = "bg-[#1DA1F2]/20 hover:bg-[#1DA1F2]/40 text-[#1DA1F2]"; }
+                                            else if (w.url.includes("facebook")) { IconComp = Globe; bgClass = "bg-[#4267B2]/20 hover:bg-[#4267B2]/40 text-[#4267B2]"; }
+                                            else if (w.url.includes("youtube")) { IconComp = Play; bgClass = "bg-[#FF0000]/20 hover:bg-[#FF0000]/40 text-[#FF0000]"; }
+
+                                            return (
+                                                <a key={i} href={w.url} target="_blank" rel="noopener noreferrer"
+                                                    className={`p-2.5 rounded-lg border border-border/50 transition-colors ${bgClass}`}
+                                                    title={w.url}>
+                                                    <IconComp className="h-5 w-5" />
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -917,7 +992,8 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn, sim
                         })}
                     </div>
                 </section>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }
