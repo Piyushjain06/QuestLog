@@ -24,10 +24,10 @@ export default async function HomePage() {
                     {/* Headline */}
                     <h1 className="text-5xl sm:text-6xl lg:text-8xl font-display font-black tracking-tight mb-8 animate-slide-up leading-[0.95]">
                         Every mission<br />
-                        <span className="italic font-serif gradient-text">curated.</span>
+                        <span className="italic gradient-text">curated.</span>
                     </h1>
 
-                    <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto mb-12 animate-slide-up leading-relaxed font-light">
+                    <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto mb-12 animate-slide-up leading-relaxed font-display">
                         The premium companion for the discerning gamer. Track your
                         achievements, catalog your library, and narrate your digital legacy.
                     </p>
