@@ -40,13 +40,12 @@ export async function POST(req: NextRequest) {
                     data: {
                         igdbId: String(igdbId),
                         coverUrl: igdbGame.coverUrl || game.coverUrl,
-                        description: finalDescription || game.description,
-                        genres: JSON.stringify(igdbGame.genres) || game.genres,
-                        tags: igdbGame.themes.length > 0 ? JSON.stringify(igdbGame.themes) : game.tags,
-                        platforms: JSON.stringify(finalPlatforms),
-                        developer: igdbGame.developers[0] || game.developer || null,
-                        publisher: igdbGame.publishers[0] || game.publisher || null,
-                        releaseDate: igdbGame.releaseDate || game.releaseDate,
+                        platforms: {
+                            deleteMany: {},
+                            create: finalPlatforms.map((name: string) => ({
+                                platform: { connectOrCreate: { where: { name }, create: { name } } }
+                            }))
+                        },
                     },
                 });
             } else {
@@ -55,33 +54,17 @@ export async function POST(req: NextRequest) {
                     data: {
                         title: igdbGame.title,
                         slug,
-                        description: finalDescription,
                         coverUrl: igdbGame.coverUrl,
                         igdbId: String(igdbId),
-                        genres: JSON.stringify(igdbGame.genres),
-                        tags: JSON.stringify(igdbGame.themes),
-                        platforms: JSON.stringify(finalPlatforms),
-                        developer: igdbGame.developers[0] || null,
-                        publisher: igdbGame.publishers[0] || null,
-                        releaseDate: igdbGame.releaseDate,
-                        rating: igdbGame.rating ? parseFloat(igdbGame.rating) || null : null,
+                        platforms: {
+                            create: finalPlatforms.map((name: string) => ({
+                                platform: { connectOrCreate: { where: { name }, create: { name } } }
+                            }))
+                        },
                     },
                 });
             }
-        } else if (clientPlatforms && clientPlatforms.length > 0) {
-            // Game already exists but update platforms if client has richer data
-            const existingPlatforms: string[] = JSON.parse(game.platforms || "[]");
-            const merged = Array.from(new Set([...existingPlatforms, ...clientPlatforms]));
-            if (merged.length > existingPlatforms.length) {
-                game = await prisma.game.update({
-                    where: { id: game.id },
-                    data: {
-                        platforms: JSON.stringify(merged),
-                        ...(clientDescription && !game.description ? { description: clientDescription } : {}),
-                    },
-                });
-            }
-        }
+        } // End of game creation / sync block
 
         // Only add to user's library if a status was explicitly provided
         if (status) {

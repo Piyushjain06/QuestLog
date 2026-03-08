@@ -64,9 +64,16 @@ export async function normalizeAndUpsertGames(games: GameInput[]) {
                     coverUrl: game.coverUrl ?? "",
                     steamAppId: game.steamAppId ?? null,
                     epicId: game.epicId ?? null,
-                    genres: JSON.stringify(game.genres ?? []),
-                    tags: JSON.stringify(game.tags ?? []),
-                    platforms: JSON.stringify(game.platforms ?? []),
+                    genres: {
+                        create: (game.genres ?? []).map((name) => ({
+                            genre: { connectOrCreate: { where: { name }, create: { name } } },
+                        })),
+                    },
+                    platforms: {
+                        create: (game.platforms ?? []).map((name) => ({
+                            platform: { connectOrCreate: { where: { name }, create: { name } } },
+                        })),
+                    },
                     developer: game.developer ?? null,
                     publisher: game.publisher ?? null,
                     releaseDate: game.releaseDate ?? null,
@@ -108,7 +115,7 @@ export async function linkGamesToUser(
         } else if (playtimeMap?.[gameId]) {
             // Update playtime if newer
             const updated = await prisma.userGameLibrary.update({
-                where: { id: existing.id },
+                where: { userId_gameId: { userId, gameId } },
                 data: { playtimeHrs: playtimeMap[gameId] },
             });
             results.push(updated);

@@ -492,10 +492,18 @@ async function main() {
                 slug: game.slug,
                 description: game.description,
                 coverUrl: game.coverUrl,
-                steamAppId: game.steamAppId,
-                genres: JSON.stringify(game.genres),
-                tags: JSON.stringify(game.tags),
-                platforms: JSON.stringify(game.platforms),
+                genres: {
+                    create: game.genres.map((name) => ({
+                        genre: { connectOrCreate: { where: { name }, create: { name } } }
+                    }))
+                },
+                platforms: {
+                    create: game.platforms.map((name) => ({
+                        platform: { connectOrCreate: { where: { name }, create: { name } } }
+                    }))
+                },
+                genreNames: game.genres,
+                platformNames: game.platforms,
                 developer: game.developer,
                 publisher: game.publisher,
                 releaseDate: game.releaseDate,
@@ -529,12 +537,18 @@ async function main() {
                 create: {
                     userId: user.id,
                     gameId,
-                    status: entry.status,
+                    status: entry.status as any,
                     playtimeHrs: entry.playtimeHrs,
                     userRating: entry.userRating,
                     startedAt: entry.playtimeHrs > 0 ? new Date("2024-01-15") : null,
                     completedAt: entry.status === "COMPLETED" ? new Date("2024-06-01") : null,
                 },
+            });
+
+            await prisma.userGameDetails.upsert({
+                where: { userId_gameId: { userId: user.id, gameId } },
+                update: {},
+                create: { userId: user.id, gameId },
             });
         }
     }

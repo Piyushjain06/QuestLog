@@ -57,7 +57,7 @@ function getTopTags(
     profile: Map<string, { weight: number; original: string }>,
     n: number
 ): Array<{ normalized: string; original: string; weight: number }> {
-    return [...profile.entries()]
+    return Array.from(profile.entries())
         .map(([normalized, { weight, original }]) => ({ normalized, original, weight }))
         .sort((a, b) => b.weight - a.weight)
         .slice(0, n);
@@ -75,13 +75,28 @@ export async function getRecommendations(
     // 1. Get user's games with their tags, rating, and status
     const userLibrary = await prisma.userGameLibrary.findMany({
         where: { userId },
-        include: { game: true },
+        include: {
+            game: {
+                include: {
+                    genres: { include: { genre: true } },
+                }
+            }
+        },
     });
 
     if (userLibrary.length === 0) return [];
 
+    const mappedLibrary = userLibrary.map((entry: any) => ({
+        ...entry,
+        game: {
+            ...entry.game,
+            genres: JSON.stringify(entry.game.genres?.map((g: any) => g.genre.name) || []),
+            tags: JSON.stringify([]),
+        }
+    }));
+
     // 2. Build user preference profile
-    const profile = buildUserProfile(userLibrary);
+    const profile = buildUserProfile(mappedLibrary);
     if (profile.size === 0) return [];
 
     // 3. Extract top genres/themes for IGDB query
@@ -92,7 +107,7 @@ export async function getRecommendations(
     const excludeIgdbIds: number[] = [];
     for (const entry of userLibrary) {
         if (entry.game.igdbId) {
-            excludeIgdbIds.push(entry.game.igdbId);
+            excludeIgdbIds.push(Number(entry.game.igdbId));
         }
     }
 
@@ -128,14 +143,14 @@ export async function getRecommendations(
         const normalizedScore = allTags.length > 0 ? score / Math.sqrt(allTags.length) : 0;
 
         // Boost for IGDB rating
-        const ratingBoost = game.rating ? parseFloat(game.rating) / 100 : 0;
+        const ratingBoost = typeof game.rating === 'number' ? game.rating / 100 : 0;
 
         return {
             ...game,
             score: normalizedScore + ratingBoost,
             reason:
                 matchedTags.length > 0
-                    ? `Matches: ${[...new Set(matchedTags)].slice(0, 3).join(", ")}`
+                    ? `Matches: ${Array.from(new Set(matchedTags)).slice(0, 3).join(", ")}`
                     : "Recommended for you",
         };
     });

@@ -1,39 +1,59 @@
-# dependencies
-node_modules
+# Dependencies
+/node_modules
 /.pnp
 .pnp.js
 
-# Next.js build output
+# Next.js Build Output
 /.next/
 /out/
 /build
 
-# env files — keep secrets off GitHub
+# Production
+/dist
+
+# Debug Logs & Error Reports
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.txt
+*.log
+igdb_debug.json
+igdb_test_output.json
+temp_*.json
+
+# Env Files (Secrets)
 .env
-.env.*
-!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Vercel
+.vercel
 
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
 
-# Vercel
-.vercel
+# Prisma / Databases
+/prisma/*.db
+/prisma/*.db-journal
+/prisma/generated
+/prisma/migrations
 
-# Debug logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# OS
+# OS Files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Local build artifacts
-build_output.txt
-build_output_ansi.txt
-
-# Test scripts
-test*.js
-test*.ts
+# Misc Local Scripts
+test-igdb-full.js
+test-igdb.js
+replace_uuid.js
+migrate-to-postgres.ts

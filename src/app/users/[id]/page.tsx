@@ -30,8 +30,15 @@ export default async function UserProfilePage({
             image: true,
             bio: true,
             createdAt: true,
-            gameLibrary: {
-                include: { game: true },
+            library: {
+                include: {
+                    game: {
+                        include: {
+                            genres: { include: { genre: true } },
+                            platforms: { include: { platform: true } },
+                        }
+                    }
+                },
                 orderBy: { updatedAt: "desc" },
             },
         },
@@ -68,6 +75,16 @@ export default async function UserProfilePage({
         }
     }
 
+    const mappedLibrary = user.library.map((entry: any) => ({
+        ...entry,
+        game: {
+            ...entry.game,
+            genres: JSON.stringify(entry.game.genres?.map((g: any) => g.genre.name) || []),
+            platforms: JSON.stringify(entry.game.platforms?.map((p: any) => p.platform.name) || []),
+            tags: JSON.stringify([]),
+        }
+    }));
+
     return (
         <PublicProfileClient
             userId={user.id}
@@ -78,7 +95,7 @@ export default async function UserProfilePage({
                 bio: user.bio || "",
                 joinedAt: user.createdAt.toISOString(),
             }}
-            initialLibrary={JSON.parse(JSON.stringify(user.gameLibrary))}
+            initialLibrary={JSON.parse(JSON.stringify(mappedLibrary))}
             initialFriendshipStatus={friendshipStatus}
             initialFriendshipId={friendshipId}
         />

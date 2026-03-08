@@ -33,7 +33,7 @@ export async function GET(req: Request) {
             name: true,
             image: true,
             bio: true,
-            _count: { select: { gameLibrary: true } },
+            _count: { select: { library: true } },
         },
         take: 20,
     });
@@ -44,7 +44,7 @@ export async function GET(req: Request) {
             name: u.name,
             image: u.image,
             bio: u.bio,
-            gameCount: u._count.gameLibrary,
+            gameCount: u._count.library,
         })),
     });
 }

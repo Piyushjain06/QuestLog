@@ -18,7 +18,7 @@ export async function GET(
             image: true,
             bio: true,
             createdAt: true,
-            gameLibrary: {
+            library: {
                 include: { game: true },
                 orderBy: { updatedAt: "desc" },
             },
@@ -64,7 +64,7 @@ export async function GET(
             bio: user.bio,
             joinedAt: user.createdAt.toISOString(),
         },
-        library: JSON.parse(JSON.stringify(user.gameLibrary)),
+        library: JSON.parse(JSON.stringify(user.library)),
         friendshipStatus,
         friendshipId,
     });

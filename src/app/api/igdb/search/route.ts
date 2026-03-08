@@ -9,6 +9,10 @@ async function searchLocalDB(query: string) {
 
     const allGames = await prisma.game.findMany({
         orderBy: { title: "asc" },
+        include: {
+            genres: { include: { genre: true } },
+            platforms: { include: { platform: true } },
+        }
     });
 
     // Filter with case-insensitive matching — each word must appear in the title
@@ -26,17 +30,17 @@ async function searchLocalDB(query: string) {
     const combined = [...filtered, ...partial].slice(0, 30);
 
     return {
-        games: combined.map((g) => ({
+        games: combined.map((g: any) => ({
             igdbId: g.igdbId ? Number(g.igdbId) : -Math.abs(g.id.charCodeAt(0)),
             title: g.title,
             description: g.description || "",
             coverUrl: g.coverUrl || "",
             releaseDate: g.releaseDate || null,
             rating: g.rating ? String(g.rating) : null,
-            genres: (() => { try { return JSON.parse(g.genres); } catch { return []; } })(),
+            genres: g.genres?.map((x: any) => x.genre.name) || [],
             developers: g.developer ? [g.developer] : [],
             publishers: g.publisher ? [g.publisher] : [],
-            platforms: (() => { try { return JSON.parse(g.platforms); } catch { return []; } })(),
+            platforms: g.platforms?.map((x: any) => x.platform.name) || [],
             localId: g.id,
         })),
         count: combined.length,

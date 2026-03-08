@@ -11,21 +11,32 @@ export async function PATCH(req: NextRequest) {
             return NextResponse.json({ error: "No user found" }, { status: 401 });
         }
 
-        const progress = await prisma.userMissionProgress.upsert({
-            where: { userId_missionId: { userId: user.id, missionId } },
-            update: {
-                completed,
-                completedAt: completed ? new Date() : null,
-            },
-            create: {
-                userId: user.id,
-                missionId,
-                completed,
-                completedAt: completed ? new Date() : null,
-            },
+        const gameId = await prisma.mission.findUnique({
+            where: { id: missionId },
+            select: { gameId: true }
         });
 
-        return NextResponse.json(progress);
+        if (!gameId) {
+            return NextResponse.json({ error: "Mission not found" }, { status: 404 });
+        }
+
+        const details = await prisma.userGameDetails.upsert({
+            where: { userId_gameId: { userId: user.id, gameId: gameId.gameId } },
+            update: {},
+            create: { userId: user.id, gameId: gameId.gameId },
+        });
+
+        const updatedProgress = {
+            ...(details.missionProgress as Record<string, boolean>),
+            [missionId]: completed,
+        };
+
+        await prisma.userGameDetails.update({
+            where: { userId_gameId: { userId: user.id, gameId: gameId.gameId } },
+            data: { missionProgress: updatedProgress }
+        });
+
+        return NextResponse.json({ success: true, missionProgress: updatedProgress });
     } catch (error) {
         console.error("Failed to update mission:", error);
         return NextResponse.json({ error: "Failed to update" }, { status: 500 });

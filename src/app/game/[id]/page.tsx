@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getGameById, getSimilarGamesFromIGDB, getExtendedGameDetailsFromIGDB } from "@/lib/igdb";
+import { getGameById, getSimilarGamesFromIGDB, getExtendedGameDetailsFromIGDB, searchGames } from "@/lib/igdb";
 import { GameDetailClient } from "./GameDetailClient";
 
 export const dynamic = "force-dynamic";
@@ -16,33 +16,64 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 }
 
 export default async function GameDetailPage({ params }: { params: { id: string } }) {
-    let game = await prisma.game.findUnique({
+    let dbGame = await prisma.game.findUnique({
         where: { id: params.id },
         include: {
             missions: { orderBy: { orderIndex: "asc" } },
-            userLibraries: true,
+            library: true,
+            genres: { include: { genre: true } },
+            platforms: { include: { platform: true } },
         },
     });
 
-    if (!game) notFound();
+    if (!dbGame) notFound();
+    let game: any = dbGame;
 
-    // Lazy backfill: if game has an IGDB ID but no tags, fetch themes from IGDB
-    const currentTags = (() => { try { return JSON.parse(game.tags); } catch { return []; } })();
-    if (game.igdbId && currentTags.length === 0) {
+    // Lazy backfill igdbId if missing (for legacy games imported before IGDB migration)
+    if (!game.igdbId) {
         try {
-            const igdbGame = await getGameById(Number(game.igdbId));
-            if (igdbGame && igdbGame.themes.length > 0) {
+            const searchResult = await searchGames(game.title, 1);
+            if (searchResult.games.length > 0) {
+                const bestMatch = searchResult.games[0];
                 game = await prisma.game.update({
                     where: { id: game.id },
-                    data: { tags: JSON.stringify(igdbGame.themes) },
+                    data: { igdbId: String(bestMatch.igdbId) },
                     include: {
                         missions: { orderBy: { orderIndex: "asc" } },
-                        userLibraries: true,
+                        library: true,
+                        genres: { include: { genre: true } },
+                        platforms: { include: { platform: true } },
                     },
-                }) as typeof game;
+                });
             }
         } catch (e) {
-            console.warn("Failed to backfill themes for", game.title, e);
+            console.warn("Failed to backfill igdbId for legacy game", game.title, e);
+        }
+    }
+
+    // Fetch full data from IGDB if igdbId is present to backfill minimal DB data
+    if (game.igdbId) {
+        try {
+            const igdbGame = await getGameById(Number(game.igdbId));
+            if (igdbGame) {
+                // Merge live IGDB data with the game object
+                // We're dropping local write-backs of live IGDB metadata to adhere strictly
+                // to the minimalist db architecture. The UI will just use the live igdbGame values.
+                game.liveDescription = igdbGame.description;
+                game.liveCoverUrl = igdbGame.coverUrl;
+                game.liveGenres = JSON.stringify(igdbGame.genres);
+                game.liveTags = JSON.stringify(igdbGame.themes);
+                game.livePlatforms = JSON.stringify(igdbGame.platforms);
+
+                game.developer = game.developer || igdbGame.developers[0] || null;
+                game.publisher = game.publisher || igdbGame.publishers[0] || null;
+                game.releaseDate = game.releaseDate || igdbGame.releaseDate;
+                if (!game.rating && igdbGame.rating) {
+                    game.rating = parseFloat(igdbGame.rating);
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to fetch full IGDB details for", game.title, e);
         }
     }
 
@@ -63,10 +94,11 @@ export default async function GameDetailPage({ params }: { params: { id: string 
         isLoggedIn = true;
         const user = await prisma.user.findUnique({ where: { email: session.user.email } });
         if (user) {
-            const progress = await prisma.userMissionProgress.findMany({
-                where: { userId: user.id, mission: { gameId: game.id } },
+            const details = await prisma.userGameDetails.findUnique({
+                where: { userId_gameId: { userId: user.id, gameId: game.id } }
             });
-            missionProgress = Object.fromEntries(progress.map((p) => [p.missionId, p.completed]));
+            const rawProgress = details?.missionProgress as Record<string, boolean> || {};
+            missionProgress = { ...rawProgress };
 
             libraryEntry = await prisma.userGameLibrary.findUnique({
                 where: { userId_gameId: { userId: user.id, gameId: game.id } },
@@ -77,15 +109,24 @@ export default async function GameDetailPage({ params }: { params: { id: string 
     const [similarGames, extendedDetails, missionsWithProgress] = await Promise.all([
         similarGamesPromise,
         extendedDetailsPromise,
-        Promise.resolve(game.missions.map((m) => ({
+        Promise.resolve(game.missions.map((m: any) => ({
             ...m,
             completed: missionProgress[m.id] ?? false,
         }))),
     ]);
 
+    const gameProps = {
+        ...game,
+        description: game.liveDescription || game.description,
+        coverUrl: game.liveCoverUrl || game.coverUrl,
+        genres: game.liveGenres || JSON.stringify(game.genres?.map((g: any) => g.genre.name) || []),
+        platforms: game.livePlatforms || JSON.stringify(game.platforms?.map((p: any) => p.platform.name) || []),
+        tags: game.liveTags || JSON.stringify([]),
+    };
+
     return (
         <GameDetailClient
-            game={JSON.parse(JSON.stringify(game))}
+            game={JSON.parse(JSON.stringify(gameProps))}
             missions={JSON.parse(JSON.stringify(missionsWithProgress))}
             libraryEntry={libraryEntry ? JSON.parse(JSON.stringify(libraryEntry)) : null}
             isLoggedIn={isLoggedIn}

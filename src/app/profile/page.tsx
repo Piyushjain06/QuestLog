@@ -21,8 +21,15 @@ export default async function ProfilePage() {
     const user = await prisma.user.findUnique({
         where: { email: session.user.email },
         include: {
-            gameLibrary: {
-                include: { game: true },
+            library: {
+                include: {
+                    game: {
+                        include: {
+                            genres: { include: { genre: true } },
+                            platforms: { include: { platform: true } },
+                        }
+                    }
+                },
                 orderBy: { updatedAt: "desc" },
             },
         },
@@ -51,7 +58,17 @@ export default async function ProfilePage() {
         f.senderId === user.id ? f.receiver : f.sender
     );
 
-    const library = user.gameLibrary ?? [];
+    const library = user.library ?? [];
+
+    const mappedLibrary = library.map((entry: any) => ({
+        ...entry,
+        game: {
+            ...entry.game,
+            genres: JSON.stringify(entry.game.genres?.map((g: any) => g.genre.name) || []),
+            platforms: JSON.stringify(entry.game.platforms?.map((p: any) => p.platform.name) || []),
+            tags: JSON.stringify([]),
+        }
+    }));
 
     return (
         <ProfileClient
@@ -64,7 +81,7 @@ export default async function ProfilePage() {
                 trackerPlatform: (user as any).trackerPlatform || null,
                 trackerUsername: (user as any).trackerUsername || null,
             }}
-            library={JSON.parse(JSON.stringify(library))}
+            library={JSON.parse(JSON.stringify(mappedLibrary))}
             friends={friends.map((f) => ({
                 id: f.id,
                 name: f.name,
