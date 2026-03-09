@@ -29,7 +29,16 @@ import {
     X,
     Globe,
     Monitor,
-    Gamepad
+    Gamepad,
+    Youtube,
+    Twitter,
+    Facebook,
+    Twitch,
+    Instagram,
+    Github,
+    Smartphone,
+    MessageSquare,
+    Apple
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -908,9 +917,17 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn, sim
                                             else if (w.url.includes("xbox")) { IconComp = Gamepad; bgClass = "bg-[#107C10]/20 hover:bg-[#107C10]/40 text-[#107C10]"; }
                                             else if (w.url.includes("playstation")) { IconComp = Gamepad; bgClass = "bg-[#00439C]/20 hover:bg-[#00439C]/40 text-[#00439C]"; }
                                             else if (w.url.includes("nintendo")) { IconComp = Gamepad; bgClass = "bg-[#E60012]/20 hover:bg-[#E60012]/40 text-[#E60012]"; }
-                                            else if (w.url.includes("twitter")) { IconComp = Globe; bgClass = "bg-[#1DA1F2]/20 hover:bg-[#1DA1F2]/40 text-[#1DA1F2]"; }
-                                            else if (w.url.includes("facebook")) { IconComp = Globe; bgClass = "bg-[#4267B2]/20 hover:bg-[#4267B2]/40 text-[#4267B2]"; }
-                                            else if (w.url.includes("youtube")) { IconComp = Play; bgClass = "bg-[#FF0000]/20 hover:bg-[#FF0000]/40 text-[#FF0000]"; }
+                                            else if (w.url.includes("twitter") || w.url.includes("x.com")) { IconComp = Twitter; bgClass = "bg-[#1DA1F2]/20 hover:bg-[#1DA1F2]/40 text-[#1DA1F2]"; }
+                                            else if (w.url.includes("facebook")) { IconComp = Facebook; bgClass = "bg-[#4267B2]/20 hover:bg-[#4267B2]/40 text-[#4267B2]"; }
+                                            else if (w.url.includes("youtube")) { IconComp = Youtube; bgClass = "bg-[#FF0000]/20 hover:bg-[#FF0000]/40 text-[#FF0000]"; }
+                                            else if (w.url.includes("twitch")) { IconComp = Twitch; bgClass = "bg-[#9146FF]/20 hover:bg-[#9146FF]/40 text-[#9146FF]"; }
+                                            else if (w.url.includes("instagram")) { IconComp = Instagram; bgClass = "bg-[#E1306C]/20 hover:bg-[#E1306C]/40 text-[#E1306C]"; }
+                                            else if (w.url.includes("github")) { IconComp = Github; bgClass = "bg-[#333]/50 hover:bg-[#333] text-white"; }
+                                            else if (w.url.includes("discord")) { IconComp = MessageSquare; bgClass = "bg-[#5865F2]/20 hover:bg-[#5865F2]/40 text-[#5865F2]"; }
+                                            else if (w.url.includes("reddit")) { IconComp = MessageSquare; bgClass = "bg-[#FF4500]/20 hover:bg-[#FF4500]/40 text-[#FF4500]"; }
+                                            else if (w.url.includes("wikipedia") || w.url.includes("wikia") || w.url.includes("fandom")) { IconComp = Globe; bgClass = "bg-card hover:bg-muted text-muted-foreground"; }
+                                            else if (w.url.match(/apple|ios|ipad|iphone|itunes/i)) { IconComp = Apple; bgClass = "bg-[#A2AAAD]/20 hover:bg-[#A2AAAD]/40 text-[#A2AAAD]"; }
+                                            else if (w.url.match(/android|google|play\.google/i)) { IconComp = Smartphone; bgClass = "bg-[#3DDC84]/20 hover:bg-[#3DDC84]/40 text-[#3DDC84]"; }
 
                                             return (
                                                 <a key={i} href={w.url} target="_blank" rel="noopener noreferrer"
