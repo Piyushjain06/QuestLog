@@ -125,7 +125,34 @@ interface GameDetailClientProps {
     extendedDetails?: ExtendedGameDetails;
 }
 
-export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn, similarGames, extendedDetails }: GameDetailClientProps) {
+export function GameDetailClient({ game: initialGame, missions, libraryEntry, isLoggedIn, similarGames: initialSimilarGames, extendedDetails: initialExtendedDetails }: GameDetailClientProps) {
+    const [liveData, setLiveData] = useState<{ liveGame?: any, similarGames?: SimilarGame[], extendedDetails?: ExtendedGameDetails } | null>(null);
+
+    useEffect(() => {
+        if (!initialGame.igdbId) return;
+        fetch(`/api/igdb/live-details?igdbId=${initialGame.igdbId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data && !data.error) {
+                    setLiveData(data);
+                }
+            })
+            .catch(e => console.error("Failed to fetch live game details:", e));
+    }, [initialGame.igdbId]);
+
+    const game = liveData?.liveGame ? {
+        ...initialGame,
+        ...liveData.liveGame,
+        description: liveData.liveGame.description || initialGame.description,
+        coverUrl: liveData.liveGame.coverUrl || initialGame.coverUrl,
+        genres: JSON.stringify(liveData.liveGame.genres || []),
+        tags: JSON.stringify(liveData.liveGame.themes || []),
+        platforms: JSON.stringify(liveData.liveGame.platforms || [])
+    } : initialGame;
+
+    const similarGames = liveData?.similarGames || initialSimilarGames;
+    const extendedDetails = liveData?.extendedDetails || initialExtendedDetails;
+
     const genres = parseJsonField<string[]>(game.genres, []);
     const tags = parseJsonField<string[]>(game.tags, []);
     const platforms = parseJsonField<string[]>(game.platforms, []);
@@ -453,7 +480,7 @@ export function GameDetailClient({ game, missions, libraryEntry, isLoggedIn, sim
                             {game.rating && (
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                     <Star className="h-4 w-4 text-neon-orange fill-neon-orange" />
-                                    <span>{game.rating.toFixed(1)}/10</span>
+                                    <span>{Number(game.rating).toFixed(1)}/10</span>
                                 </div>
                             )}
                         </div>
