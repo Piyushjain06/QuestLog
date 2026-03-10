@@ -173,6 +173,7 @@ export function GameDetailClient({ game: initialGame, missions, libraryEntry, is
     const [screenshots, setScreenshots] = useState<string[]>([]);
     const [screenshotsLoading, setScreenshotsLoading] = useState(true);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+    const [navigatingGameId, setNavigatingGameId] = useState<number | string | null>(null);
 
     // NSFW age-gate
     const nsfwKeywords = ["erotic", "sexual content", "nudity", "hentai"];
@@ -299,6 +300,33 @@ export function GameDetailClient({ game: initialGame, missions, libraryEntry, is
     const walkthroughUrl = `https://duckduckgo.com/?q=${encodeURIComponent(
         game.title + " walkthrough guide"
     )}`;
+
+    const handleSimilarGameClick = async (sg: SimilarGame) => {
+        // If we already have the DB id, just navigate directly
+        if (sg.id) {
+            router.push(`/game/${sg.id}`);
+            return;
+        }
+        // Otherwise resolve via IGDB id
+        if (!sg.igdbId) return;
+        setNavigatingGameId(sg.igdbId);
+        try {
+            const res = await fetch("/api/igdb/import", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                // No `status` means it won't be added to the library — just resolves the DB game
+                body: JSON.stringify({ igdbId: sg.igdbId }),
+            });
+            const data = await res.json();
+            if (data?.game?.id) {
+                router.push(`/game/${data.game.id}`);
+            }
+        } catch {
+            // Silently fail
+        } finally {
+            setNavigatingGameId(null);
+        }
+    };
 
     const handleRatingClick = async (value: number) => {
         const newRating = rating === value ? null : value;
@@ -989,10 +1017,20 @@ export function GameDetailClient({ game: initialGame, missions, libraryEntry, is
                                 : sg.score
                                     ? `${Math.min(Math.round(sg.score * 100), 99)}%`
                                     : null;
-                            const href = sg.id ? `/game/${sg.id}` : `/discover`;
+                            const isNavigating = navigatingGameId === (sg.igdbId ?? sg.id);
                             return (
-                                <Link key={sg.igdbId ?? sg.id ?? idx} href={href}>
-                                    <div className="group glass-card game-card-hover overflow-hidden cursor-pointer">
+                                <button
+                                    key={sg.igdbId ?? sg.id ?? idx}
+                                    onClick={() => handleSimilarGameClick(sg)}
+                                    disabled={isNavigating}
+                                    className="text-left w-full"
+                                >
+                                    <div className="group glass-card game-card-hover overflow-hidden cursor-pointer relative">
+                                        {isNavigating && (
+                                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-inherit">
+                                                <Loader2 className="h-6 w-6 animate-spin text-neon-cyan" />
+                                            </div>
+                                        )}
                                         <div className="relative aspect-[3/4] overflow-hidden bg-muted">
                                             {sg.coverUrl ? (
                                                 <Image
@@ -1031,7 +1069,7 @@ export function GameDetailClient({ game: initialGame, missions, libraryEntry, is
                                             </div>
                                         </div>
                                     </div>
-                                </Link>
+                                </button>
                             );
                         })}
                     </div>
