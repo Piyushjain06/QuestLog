@@ -70,7 +70,8 @@ function getTopTags(
  */
 export async function getRecommendations(
     userId: string,
-    limit: number = 12
+    limit: number = 12,
+    additionalExcludeIds: number[] = []
 ): Promise<Array<NormalizedGame & { score: number; reason: string }>> {
     // 1. Get user's games with their tags, rating, and status
     const userLibrary = await prisma.userGameLibrary.findMany({
@@ -103,8 +104,9 @@ export async function getRecommendations(
     const topTags = getTopTags(profile, 8);
     const genreNames = topTags.map((t) => t.original);
 
-    // 4. Collect IGDB IDs of games already in the user's library to exclude
-    const excludeIgdbIds: number[] = [];
+    // 4. Collect IGDB IDs of games already in the user's library to exclude,
+    //    plus any previously shown recommendation IDs (for refresh support)
+    const excludeIgdbIds: number[] = [...additionalExcludeIds];
     for (const entry of userLibrary) {
         if (entry.game.igdbId) {
             excludeIgdbIds.push(Number(entry.game.igdbId));

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Check, Loader2, Gamepad2, ExternalLink, TrendingUp, Calendar, Star, Clock, Flame, ChevronDown, ChevronUp, Sparkles, Library, Filter, X } from "lucide-react";
+import { Search, Plus, Check, Loader2, Gamepad2, ExternalLink, TrendingUp, Calendar, Star, Clock, Flame, ChevronDown, ChevronUp, Sparkles, Library, Filter, X, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { RecommendationCard } from "@/components/RecommendationCard";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,12 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
     const [source, setSource] = useState<string>("igdb");
     const PAGE_SIZE = 50;
 
+    // Recommendations state (client-side refreshable)
+    const [currentRecs, setCurrentRecs] = useState<Recommendation[]>(recommendations);
+    const [seenIds, setSeenIds] = useState<number[]>(recommendations.map((r) => r.igdbId));
+    const [recsRefreshing, setRecsRefreshing] = useState(false);
+    const [noMoreRecs, setNoMoreRecs] = useState(false);
+
     // Section data state
     const [trendingGames, setTrendingGames] = useState<IGDBGame[]>([]);
     const [anticipatedGames, setAnticipatedGames] = useState<IGDBGame[]>([]);
@@ -83,6 +89,28 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
     const [comingSoonLoading, setComingSoonLoading] = useState(true);
     const [showAllAnticipated, setShowAllAnticipated] = useState(false);
     const [showAllComingSoon, setShowAllComingSoon] = useState(false);
+
+    const refreshRecommendations = async () => {
+        if (recsRefreshing) return;
+        setRecsRefreshing(true);
+        setNoMoreRecs(false);
+        try {
+            const excludeParam = seenIds.join(",");
+            const res = await fetch(`/api/recommendations?exclude=${excludeParam}`);
+            const data = await res.json();
+            const newRecs: Recommendation[] = data.recommendations ?? [];
+            if (newRecs.length === 0) {
+                setNoMoreRecs(true);
+            } else {
+                setCurrentRecs(newRecs);
+                setSeenIds((prev) => [...prev, ...newRecs.map((r) => r.igdbId)]);
+            }
+        } catch {
+            // Silently fail
+        } finally {
+            setRecsRefreshing(false);
+        }
+    };
 
     const INITIAL_COUNT = 8;
 
@@ -568,15 +596,30 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
                                 <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-neon-purple/20 to-pink-500/20 border border-neon-purple/30">
                                     <Sparkles className="h-5 w-5 text-neon-purple" />
                                 </div>
-                                <div>
+                                <div className="flex-1">
                                     <h2 className="text-2xl font-display font-bold">Recommended for You</h2>
                                     <p className="text-sm text-muted-foreground">AI-powered suggestions based on your library</p>
                                 </div>
+                                {currentRecs.length > 0 && (
+                                    <button
+                                        onClick={refreshRecommendations}
+                                        disabled={recsRefreshing || noMoreRecs}
+                                        title={noMoreRecs ? "No more recommendations" : "Get fresh recommendations"}
+                                        className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-300 border ${
+                                            noMoreRecs
+                                                ? "text-muted-foreground/40 border-border/20 cursor-not-allowed"
+                                                : "text-neon-purple border-neon-purple/30 hover:bg-neon-purple/10 hover:shadow-lg hover:shadow-neon-purple/10"
+                                        }`}
+                                    >
+                                        <RefreshCw className={`h-4 w-4 ${recsRefreshing ? "animate-spin" : ""}`} />
+                                        <span>{recsRefreshing ? "Refreshing…" : noMoreRecs ? "All caught up" : "Refresh"}</span>
+                                    </button>
+                                )}
                             </div>
 
-                            {recommendations.length > 0 ? (
+                            {currentRecs.length > 0 ? (
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                                    {recommendations.map((rec) => (
+                                    {currentRecs.map((rec) => (
                                         <div key={rec.igdbId} className="animate-fade-in">
                                             <RecommendationCard
                                                 igdbId={rec.igdbId}
