@@ -18,7 +18,9 @@ model User {
   image           String?
   bio             String?
   steamId         String?  @unique
-  epicId          String?
+  steamUsername   String?
+  steamAvatarUrl  String?
+  epicId          String?  @unique
   trackerPlatform String?
   trackerUsername String?
   createdAt       DateTime @default(now())

@@ -36,10 +36,33 @@ export async function GET(req: NextRequest) {
         const session = await getServerSession(authOptions);
         if (session?.user && 'id' in session.user) {
             const userId = (session.user as any).id as string;
+            
+            // Fetch player summary for name and avatar
+            let steamUsername = null;
+            let steamAvatarUrl = null;
+            
+            try {
+                const summaryRes = await fetch(
+                    `http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${process.env.STEAM_API_KEY}&steamids=${steamId}`
+                );
+                const summaryData = await summaryRes.json();
+                const player = summaryData.response?.players?.[0];
+                if (player) {
+                    steamUsername = player.personaname;
+                    steamAvatarUrl = player.avatarfull;
+                }
+            } catch (err) {
+                console.error("Failed to fetch steam player summary:", err);
+            }
+
             // Logged in user linking their account
             await prisma.user.update({
                 where: { id: userId },
-                data: { steamId },
+                data: { 
+                    steamId,
+                    steamUsername,
+                    steamAvatarUrl,
+                },
             });
             return NextResponse.redirect(new URL('/profile', req.url));
         }

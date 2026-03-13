@@ -15,6 +15,8 @@ export async function POST() {
             where: { email: session.user.email },
             data: {
                 steamId: null,
+                steamUsername: null,
+                steamAvatarUrl: null,
             }
         });
 

@@ -85,7 +85,7 @@ export function SteamLinkCard({ steamProfile }: SteamLinkCardProps) {
                             )}
                             <div className="flex flex-col">
                                 <span className="text-sm font-medium">{steamProfile.username}</span>
-                                <span className="text-xs text-muted-foreground">{steamProfile.steamId}</span>
+                                <span className="text-xs text-violet-400/80 font-medium">Steam Verified</span>
                             </div>
                         </div>
                         <div className="flex flex-col items-end gap-2 w-full sm:w-auto mt-2 sm:mt-0">
