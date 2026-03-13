@@ -30,6 +30,7 @@ model User {
   missionProgress UserMissionProgress[]
   sentRequests    Friendship[] @relation("SentRequests")
   receivedReqs    Friendship[] @relation("ReceivedRequests")
+  achievements    UserAchievement[]
 }
 
 model Account {
@@ -91,6 +92,7 @@ model Game {
   platforms   GamePlatform[]
   library     UserGameLibrary[]
   missions    Mission[]
+  achievements Achievement[]
 
   @@index([igdbId])
   @@index([slug])
@@ -216,4 +218,33 @@ model Friendship {
   receiver User @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
 
   @@unique([senderId, receiverId])
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  gameId      String
+  name        String   // Internal Steam API name (e.g. "ACH_WIN_ONE_GAME")
+  displayName String
+  description String?
+  iconUrl     String?
+  iconGrayUrl String?
+  hidden      Boolean  @default(false)
+  
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  users       UserAchievement[]
+
+  @@unique([gameId, name])
+  @@index([gameId])
+}
+
+model UserAchievement {
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@id([userId, achievementId]) // Composite PK
+  @@index([userId])
 }

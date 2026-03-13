@@ -80,6 +80,9 @@ export default async function ProfilePage() {
                 bio: user.bio || "",
                 trackerPlatform: (user as any).trackerPlatform || null,
                 trackerUsername: (user as any).trackerUsername || null,
+                steamId: (user as any).steamId || null,
+                steamUsername: (user as any).steamUsername || null,
+                steamAvatarUrl: (user as any).steamAvatarUrl || null,
             }}
             library={JSON.parse(JSON.stringify(mappedLibrary))}
             friends={friends.map((f) => ({

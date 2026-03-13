@@ -59,11 +59,15 @@ export default async function GameDetailPage({ params }: { params: { id: string 
     let missionProgress: Record<string, boolean> = {};
     let libraryEntry = null;
     let isLoggedIn = false;
+    let userSteamId: string | null = null;
+    let userId: string | null = null;
 
     if (session?.user?.email) {
         isLoggedIn = true;
         const user = await prisma.user.findUnique({ where: { email: session.user.email } });
         if (user) {
+            userId = user.id;
+            userSteamId = user.steamId;
             const [details, library] = await Promise.all([
                 prisma.userGameDetails.findUnique({
                     where: { userId_gameId: { userId: user.id, gameId: game.id } }
@@ -72,14 +76,80 @@ export default async function GameDetailPage({ params }: { params: { id: string 
                     where: { userId_gameId: { userId: user.id, gameId: game.id } },
                 })
             ]);
-            missionProgress = (details?.missionProgress as Record<string, boolean>) || {};
+            if (game.missions && game.missions.length > 0) {
+                const progressArr = await prisma.userMissionProgress.findMany({
+                    where: {
+                        userId: user.id,
+                        missionId: { in: game.missions.map((m: any) => m.id) }
+                    }
+                });
+                for (const p of progressArr) {
+                    missionProgress[p.missionId] = p.completed;
+                }
+            }
+
             libraryEntry = library;
         }
     }
 
-    const missionsWithProgress = game.missions.map((m: any) => ({
+    const missionsWithProgress = game.missions?.map((m: any) => ({
         ...m,
         completed: missionProgress[m.id] ?? false,
+    })) || [];
+
+    // Fetch achievements
+    const achievements = await prisma.achievement.findMany({
+        where: { gameId: game.id },
+        orderBy: { name: "asc" }
+    });
+
+    let userUnlockedAchievements = new Set<string>();
+    if (userId && userSteamId && achievements.length > 0) {
+        const unlocked = await prisma.userAchievement.findMany({
+            where: {
+                userId,
+                achievement: {
+                    gameId: game.id
+                }
+            }
+        });
+        unlocked.forEach((ua: any) => userUnlockedAchievements.add(ua.achievementId));
+    }
+
+    const mappedAchievements = achievements.map((ach: any) => ({
+        id: ach.id,
+        name: ach.name,
+        displayName: ach.displayName,
+        description: ach.description,
+        iconUrl: ach.iconUrl,
+        iconGrayUrl: ach.iconGrayUrl,
+        hidden: ach.hidden,
+        unlockedAt: userUnlockedAchievements.has(ach.id) ? new Date() : null, // Simplify by just using 'now' or we could fetch the real date if we had it. Wait, the DB has `unlockedAt`.
+    }));
+
+    // Actually, let's fetch the unlocked record fully to get the real Date.
+    let userMap = new Map<string, Date>();
+    if (userId) {
+        const unlocked = await prisma.userAchievement.findMany({
+            where: { 
+                userId, 
+                achievement: {
+                    gameId: game.id 
+                }
+            }
+        });
+        unlocked.forEach((ua: any) => userMap.set(ua.achievementId, ua.unlockedAt));
+    }
+    
+    const achievementsWithProgress = achievements.map((ach: any) => ({
+        id: ach.id,
+        name: ach.name,
+        displayName: ach.displayName,
+        description: ach.description,
+        iconUrl: ach.iconUrl,
+        iconGrayUrl: ach.iconGrayUrl,
+        hidden: ach.hidden,
+        unlockedAt: userMap.get(ach.id) || null,
     }));
 
     const gameProps = {
@@ -95,6 +165,7 @@ export default async function GameDetailPage({ params }: { params: { id: string 
         <GameDetailClient
             game={JSON.parse(JSON.stringify(gameProps))}
             missions={JSON.parse(JSON.stringify(missionsWithProgress))}
+            achievements={JSON.parse(JSON.stringify(achievementsWithProgress))}
             libraryEntry={libraryEntry ? JSON.parse(JSON.stringify(libraryEntry)) : null}
             isLoggedIn={isLoggedIn}
             similarGames={[]} // Initially empty, handled by client
