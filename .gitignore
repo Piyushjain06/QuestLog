@@ -53,7 +53,8 @@ ehthumbs.db
 Thumbs.db
 
 # Misc Local Scripts
-test-igdb-full.js
-test-igdb.js
+test-*.ts
+test-*.js
+out*.json
 replace_uuid.js
 migrate-to-postgres.ts

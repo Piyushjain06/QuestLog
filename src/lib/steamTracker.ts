@@ -37,7 +37,7 @@ export async function fetchSteamAppIdFromIGDB(igdbIdStr: string): Promise<string
         return existingGame.steamAppId;
     }
 
-    const query = `fields uid, url; where game = ${igdbId};`;
+    const query = `fields uid, url; where game = ${igdbId}; limit 50;`;
 
     try {
         const results = await fetchIGDB("external_games", query);
