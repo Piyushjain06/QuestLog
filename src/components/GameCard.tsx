@@ -17,11 +17,12 @@ interface GameCardProps {
     platforms: string;
 }
 
-const statusVariantMap: Record<GameStatus, "playing" | "completed" | "dropped" | "backlog"> = {
+const statusVariantMap: Record<GameStatus, "playing" | "completed" | "dropped" | "backlog" | "planning"> = {
     PLAYING: "playing",
     COMPLETED: "completed",
     DROPPED: "dropped",
     BACKLOG: "backlog",
+    PLANNING: "planning",
 };
 
 const statusLabel: Record<GameStatus, string> = {
@@ -29,6 +30,7 @@ const statusLabel: Record<GameStatus, string> = {
     COMPLETED: "Completed",
     DROPPED: "Dropped",
     BACKLOG: "Backlog",
+    PLANNING: "Planning",
 };
 
 export function GameCard({
@@ -42,6 +44,7 @@ export function GameCard({
 }: GameCardProps) {
     const genreList = parseJsonField<string[]>(genres, []);
     const [imgError, setImgError] = useState(false);
+    const [imgSrc, setImgSrc] = useState<string | null>(coverUrl);
 
     return (
         <Link href={`/game/${id}`}>
@@ -50,9 +53,21 @@ export function GameCard({
                 <div className="relative aspect-[3/4] overflow-hidden bg-muted">
                     {coverUrl && !imgError ? (
                         <img
-                            src={coverUrl}
+                            src={imgSrc || coverUrl}
                             alt={title}
-                            onError={() => setImgError(true)}
+                            onError={() => {
+                                // Try Steam header.jpg as fallback if it looks like a library_600x900 URL
+                                if (!imgError) {
+                                    const steamMatch = coverUrl?.match(/steam\/apps\/([\d]+)\//);
+                                    if (steamMatch) {
+                                        setImgSrc(`https://cdn.akamai.steamstatic.com/steam/apps/${steamMatch[1]}/header.jpg`);
+                                    } else {
+                                        setImgError(true);
+                                    }
+                                } else {
+                                    setImgError(true);
+                                }
+                            }}
                             className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                         />
                     ) : (

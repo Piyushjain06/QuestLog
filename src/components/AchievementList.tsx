@@ -24,7 +24,7 @@ export function AchievementList({ achievements }: AchievementListProps) {
     const sorted = [...achievements].sort((a, b) => {
         if (a.unlockedAt && !b.unlockedAt) return -1;
         if (!a.unlockedAt && b.unlockedAt) return 1;
-        if (a.unlockedAt && b.unlockedAt) return b.unlockedAt.getTime() - a.unlockedAt.getTime(); // newest first
+        if (a.unlockedAt && b.unlockedAt) return new Date(b.unlockedAt).getTime() - new Date(a.unlockedAt).getTime(); // newest first
         return a.displayName.localeCompare(b.displayName);
     });
 

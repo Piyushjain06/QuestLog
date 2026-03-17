@@ -141,6 +141,7 @@ enum GameStatus {
   COMPLETED
   DROPPED
   BACKLOG
+  PLANNING
 }
 
 model UserGameLibrary {
@@ -152,6 +153,7 @@ model UserGameLibrary {
   favorite    Boolean    @default(false)
   startedAt   DateTime?
   completedAt DateTime?
+  lastPlayedAt DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 

@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
                     steamAvatarUrl,
                 },
             });
-            return NextResponse.redirect(new URL('/profile', req.url));
+            return NextResponse.redirect(new URL('/profile?steam=linked', req.url));
         }
     } catch (e) {
         console.error("Error reading session during Steam auth:", e);

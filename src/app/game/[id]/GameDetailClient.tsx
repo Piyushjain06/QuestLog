@@ -81,6 +81,7 @@ interface LibraryEntry {
     playtimeHrs: number;
     userRating: number | null;
     favorite: boolean;
+    lastPlayedAt: string | null;
 }
 
 interface SimilarGame {
@@ -349,6 +350,7 @@ export function GameDetailClient({ game: initialGame, missions, achievements = [
         { value: "PLAYING", label: "Playing", variant: "playing" as const },
         { value: "COMPLETED", label: "Completed", variant: "completed" as const },
         { value: "BACKLOG", label: "Backlog", variant: "backlog" as const },
+        { value: "PLANNING", label: "Planning", variant: "planning" as const },
         { value: "DROPPED", label: "Dropped", variant: "dropped" as const },
     ];
 
@@ -419,14 +421,15 @@ export function GameDetailClient({ game: initialGame, missions, achievements = [
 
             {/* Hero section */}
             <div className="relative glass-card overflow-hidden">
-                {/* Banner background */}
+                {/* Banner background — prefer Steam hero banner, fall back to blurred cover */}
                 <div className="absolute inset-0 overflow-hidden">
-                    {game.coverUrl ? (
+                    {game.bannerUrl || game.coverUrl ? (
                         <Image
-                            src={game.coverUrl}
+                            src={game.bannerUrl || game.coverUrl!}
                             alt=""
                             fill
-                            className="object-cover blur-2xl opacity-20 scale-110"
+                            className={game.bannerUrl ? "object-cover opacity-40" : "object-cover blur-2xl opacity-20 scale-110"}
+                            priority
                         />
                     ) : (
                         <div className="w-full h-full bg-gradient-to-br from-neon-cyan/10 to-neon-purple/10" />
@@ -512,6 +515,23 @@ export function GameDetailClient({ game: initialGame, missions, achievements = [
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                     <Star className="h-4 w-4 text-neon-orange fill-neon-orange" />
                                     <span>{Number(game.rating).toFixed(1)}/10</span>
+                                </div>
+                            )}
+                            {/* Last played — from Steam */}
+                            {libraryEntry?.lastPlayedAt && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Clock className="h-4 w-4 text-neon-cyan" />
+                                    <span>Last played {new Date(libraryEntry.lastPlayedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: new Date(libraryEntry.lastPlayedAt).getFullYear() !== new Date().getFullYear() ? "numeric" : undefined })}</span>
+                                </div>
+                            )}
+                            {/* Achievement count */}
+                            {achievements.length > 0 && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-neon-orange"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                                    <span className="font-medium">
+                                        {achievements.filter(a => a.unlockedAt).length}
+                                        <span className="text-muted-foreground/60">/{achievements.length} achievements</span>
+                                    </span>
                                 </div>
                             )}
                         </div>
@@ -981,35 +1001,44 @@ export function GameDetailClient({ game: initialGame, missions, achievements = [
                                         Links
                                     </h3>
                                     <div className="flex flex-wrap gap-2">
-                                        {extendedDetails.websites.map((w, i) => {
-                                            // Provide simple icon overrides based on typical IGDB categories or URL matches
-                                            let IconComp = ExternalLink;
-                                            let bgClass = "bg-card hover:bg-muted";
-                                            if (w.url.includes("steam")) { IconComp = Monitor; bgClass = "bg-[#171a21]/50 hover:bg-[#171a21] text-white"; }
-                                            else if (w.url.includes("epicgames")) { IconComp = Monitor; bgClass = "bg-[#2a2a2a]/50 hover:bg-[#2a2a2a] text-white"; }
-                                            else if (w.url.includes("xbox")) { IconComp = Gamepad; bgClass = "bg-[#107C10]/20 hover:bg-[#107C10]/40 text-[#107C10]"; }
-                                            else if (w.url.includes("playstation")) { IconComp = Gamepad; bgClass = "bg-[#00439C]/20 hover:bg-[#00439C]/40 text-[#00439C]"; }
-                                            else if (w.url.includes("nintendo")) { IconComp = Gamepad; bgClass = "bg-[#E60012]/20 hover:bg-[#E60012]/40 text-[#E60012]"; }
-                                            else if (w.url.includes("twitter") || w.url.includes("x.com")) { IconComp = Twitter; bgClass = "bg-[#1DA1F2]/20 hover:bg-[#1DA1F2]/40 text-[#1DA1F2]"; }
-                                            else if (w.url.includes("facebook")) { IconComp = Facebook; bgClass = "bg-[#4267B2]/20 hover:bg-[#4267B2]/40 text-[#4267B2]"; }
-                                            else if (w.url.includes("youtube")) { IconComp = Youtube; bgClass = "bg-[#FF0000]/20 hover:bg-[#FF0000]/40 text-[#FF0000]"; }
-                                            else if (w.url.includes("twitch")) { IconComp = Twitch; bgClass = "bg-[#9146FF]/20 hover:bg-[#9146FF]/40 text-[#9146FF]"; }
-                                            else if (w.url.includes("instagram")) { IconComp = Instagram; bgClass = "bg-[#E1306C]/20 hover:bg-[#E1306C]/40 text-[#E1306C]"; }
-                                            else if (w.url.includes("github")) { IconComp = Github; bgClass = "bg-[#333]/50 hover:bg-[#333] text-white"; }
-                                            else if (w.url.includes("discord")) { IconComp = MessageSquare; bgClass = "bg-[#5865F2]/20 hover:bg-[#5865F2]/40 text-[#5865F2]"; }
-                                            else if (w.url.includes("reddit")) { IconComp = MessageSquare; bgClass = "bg-[#FF4500]/20 hover:bg-[#FF4500]/40 text-[#FF4500]"; }
-                                            else if (w.url.includes("wikipedia") || w.url.includes("wikia") || w.url.includes("fandom")) { IconComp = Globe; bgClass = "bg-card hover:bg-muted text-muted-foreground"; }
-                                            else if (w.url.match(/apple|ios|ipad|iphone|itunes/i)) { IconComp = Apple; bgClass = "bg-[#A2AAAD]/20 hover:bg-[#A2AAAD]/40 text-[#A2AAAD]"; }
-                                            else if (w.url.match(/android|google|play\.google/i)) { IconComp = Smartphone; bgClass = "bg-[#3DDC84]/20 hover:bg-[#3DDC84]/40 text-[#3DDC84]"; }
-
-                                            return (
-                                                <a key={i} href={w.url} target="_blank" rel="noopener noreferrer"
-                                                    className={`p-2.5 rounded-lg border border-border/50 transition-colors ${bgClass}`}
-                                                    title={w.url}>
-                                                    <IconComp className="h-5 w-5" />
-                                                </a>
-                                            );
-                                        })}
+                                        {(() => {
+                                            const seenIcons = new Set<string>();
+                                            return extendedDetails.websites
+                                                .map((w) => {
+                                                    let IconComp = ExternalLink;
+                                                    let bgClass = "bg-card hover:bg-muted";
+                                                    let iconKey = "external";
+                                                    if (w.url.includes("steam")) { IconComp = Monitor; bgClass = "bg-[#171a21]/50 hover:bg-[#171a21] text-white"; iconKey = "steam"; }
+                                                    else if (w.url.includes("epicgames")) { IconComp = Monitor; bgClass = "bg-[#2a2a2a]/50 hover:bg-[#2a2a2a] text-white"; iconKey = "epic"; }
+                                                    else if (w.url.includes("xbox")) { IconComp = Gamepad; bgClass = "bg-[#107C10]/20 hover:bg-[#107C10]/40 text-[#107C10]"; iconKey = "xbox"; }
+                                                    else if (w.url.includes("playstation")) { IconComp = Gamepad; bgClass = "bg-[#00439C]/20 hover:bg-[#00439C]/40 text-[#00439C]"; iconKey = "playstation"; }
+                                                    else if (w.url.includes("nintendo")) { IconComp = Gamepad; bgClass = "bg-[#E60012]/20 hover:bg-[#E60012]/40 text-[#E60012]"; iconKey = "nintendo"; }
+                                                    else if (w.url.includes("twitter") || w.url.includes("x.com")) { IconComp = Twitter; bgClass = "bg-[#1DA1F2]/20 hover:bg-[#1DA1F2]/40 text-[#1DA1F2]"; iconKey = "twitter"; }
+                                                    else if (w.url.includes("facebook")) { IconComp = Facebook; bgClass = "bg-[#4267B2]/20 hover:bg-[#4267B2]/40 text-[#4267B2]"; iconKey = "facebook"; }
+                                                    else if (w.url.includes("youtube")) { IconComp = Youtube; bgClass = "bg-[#FF0000]/20 hover:bg-[#FF0000]/40 text-[#FF0000]"; iconKey = "youtube"; }
+                                                    else if (w.url.includes("twitch")) { IconComp = Twitch; bgClass = "bg-[#9146FF]/20 hover:bg-[#9146FF]/40 text-[#9146FF]"; iconKey = "twitch"; }
+                                                    else if (w.url.includes("instagram")) { IconComp = Instagram; bgClass = "bg-[#E1306C]/20 hover:bg-[#E1306C]/40 text-[#E1306C]"; iconKey = "instagram"; }
+                                                    else if (w.url.includes("github")) { IconComp = Github; bgClass = "bg-[#333]/50 hover:bg-[#333] text-white"; iconKey = "github"; }
+                                                    else if (w.url.includes("discord")) { IconComp = MessageSquare; bgClass = "bg-[#5865F2]/20 hover:bg-[#5865F2]/40 text-[#5865F2]"; iconKey = "discord"; }
+                                                    else if (w.url.includes("reddit")) { IconComp = MessageSquare; bgClass = "bg-[#FF4500]/20 hover:bg-[#FF4500]/40 text-[#FF4500]"; iconKey = "reddit"; }
+                                                    else if (w.url.includes("wikipedia") || w.url.includes("wikia") || w.url.includes("fandom")) { IconComp = Globe; bgClass = "bg-card hover:bg-muted text-muted-foreground"; iconKey = "wiki"; }
+                                                    else if (w.url.match(/apple|ios|ipad|iphone|itunes/i)) { IconComp = Apple; bgClass = "bg-[#A2AAAD]/20 hover:bg-[#A2AAAD]/40 text-[#A2AAAD]"; iconKey = "apple"; }
+                                                    else if (w.url.match(/android|google|play\.google/i)) { IconComp = Smartphone; bgClass = "bg-[#3DDC84]/20 hover:bg-[#3DDC84]/40 text-[#3DDC84]"; iconKey = "android"; }
+                                                    return { w, IconComp, bgClass, iconKey };
+                                                })
+                                                .filter(({ iconKey }) => {
+                                                    if (seenIcons.has(iconKey)) return false;
+                                                    seenIcons.add(iconKey);
+                                                    return true;
+                                                })
+                                                .map(({ w, IconComp, bgClass }, i) => (
+                                                    <a key={i} href={w.url} target="_blank" rel="noopener noreferrer"
+                                                        className={`p-2.5 rounded-lg border border-border/50 transition-colors ${bgClass}`}
+                                                        title={w.url}>
+                                                        <IconComp className="h-5 w-5" />
+                                                    </a>
+                                                ));
+                                        })()}
                                     </div>
                                 </div>
                             )}

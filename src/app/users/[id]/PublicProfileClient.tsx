@@ -77,6 +77,7 @@ function statusLabel(status: string): string {
         case "COMPLETED": return "Completed";
         case "DROPPED": return "Dropped";
         case "BACKLOG": return "Added to backlog";
+        case "PLANNING": return "Added to planning";
         default: return "Updated";
     }
 }
@@ -87,6 +88,7 @@ function statusColor(status: string): string {
         case "COMPLETED": return "text-neon-cyan";
         case "DROPPED": return "text-red-400";
         case "BACKLOG": return "text-yellow-400";
+        case "PLANNING": return "text-violet-400";
         default: return "text-muted-foreground";
     }
 }
@@ -110,6 +112,7 @@ export function PublicProfileClient({
         COMPLETED: library.filter((e) => e.status === "COMPLETED").length,
         DROPPED: library.filter((e) => e.status === "DROPPED").length,
         BACKLOG: library.filter((e) => e.status === "BACKLOG").length,
+        PLANNING: library.filter((e) => e.status === "PLANNING").length,
     };
 
     const totalPlaytime = library.reduce((sum, e) => sum + e.playtimeHrs, 0);
@@ -354,6 +357,12 @@ export function PublicProfileClient({
                                             style={{ width: `${(statusCounts.BACKLOG / Math.max(library.length, 1)) * 100}%` }}
                                         />
                                     )}
+                                    {statusCounts.PLANNING > 0 && (
+                                        <div
+                                            className="h-full bg-violet-500 transition-all duration-500"
+                                            style={{ width: `${(statusCounts.PLANNING / Math.max(library.length, 1)) * 100}%` }}
+                                        />
+                                    )}
                                     {statusCounts.DROPPED > 0 && (
                                         <div
                                             className="h-full bg-red-500 rounded-r-full transition-all duration-500"
@@ -365,6 +374,7 @@ export function PublicProfileClient({
                                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-neon-cyan inline-block" />Completed ({statusCounts.COMPLETED})</span>
                                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Playing ({statusCounts.PLAYING})</span>
                                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" />Backlog ({statusCounts.BACKLOG})</span>
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-500 inline-block" />Planning ({statusCounts.PLANNING})</span>
                                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Dropped ({statusCounts.DROPPED})</span>
                                 </div>
                             </div>

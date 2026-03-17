@@ -33,6 +33,7 @@ export const STATUS_CONFIG = {
     COMPLETED: { label: "Completed", color: "bg-neon-cyan", textColor: "text-neon-cyan" },
     DROPPED: { label: "Dropped", color: "bg-red-500", textColor: "text-red-500" },
     BACKLOG: { label: "Backlog", color: "bg-neon-orange", textColor: "text-neon-orange" },
+    PLANNING: { label: "Planning", color: "bg-violet-500", textColor: "text-violet-400" },
 } as const;
 
 export type GameStatus = keyof typeof STATUS_CONFIG;

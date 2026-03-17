@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 const Badge = React.forwardRef<
     HTMLDivElement,
     React.HTMLAttributes<HTMLDivElement> & {
-        variant?: "default" | "playing" | "completed" | "dropped" | "backlog" | "outline";
+        variant?: "default" | "playing" | "completed" | "dropped" | "backlog" | "planning" | "outline";
     }
 >(({ className, variant = "default", ...props }, ref) => {
     const variants = {
@@ -13,6 +13,7 @@ const Badge = React.forwardRef<
         completed: "bg-neon-cyan/15 text-neon-cyan border-neon-cyan/30",
         dropped: "bg-red-500/15 text-red-400 border-red-500/30",
         backlog: "bg-neon-orange/15 text-neon-orange border-neon-orange/30",
+        planning: "bg-violet-500/15 text-violet-400 border-violet-500/30",
         outline: "bg-transparent text-muted-foreground border-border",
     };
 
