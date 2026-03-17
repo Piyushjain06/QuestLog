@@ -43,6 +43,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MissionList } from "@/components/MissionList";
+import { AchievementProgress } from "@/components/AchievementProgress";
+import { AchievementList, type Achievement } from "@/components/AchievementList";
 import { parseJsonField, formatPlaytime } from "@/lib/utils";
 
 interface Game {
@@ -119,13 +121,14 @@ interface ExtendedGameDetails {
 interface GameDetailClientProps {
     game: Game;
     missions: Mission[];
+    achievements?: Achievement[];
     libraryEntry: LibraryEntry | null;
     isLoggedIn: boolean;
     similarGames: SimilarGame[];
     extendedDetails?: ExtendedGameDetails;
 }
 
-export function GameDetailClient({ game: initialGame, missions, libraryEntry, isLoggedIn, similarGames: initialSimilarGames, extendedDetails: initialExtendedDetails }: GameDetailClientProps) {
+export function GameDetailClient({ game: initialGame, missions, achievements = [], libraryEntry, isLoggedIn, similarGames: initialSimilarGames, extendedDetails: initialExtendedDetails }: GameDetailClientProps) {
     const [liveData, setLiveData] = useState<{ liveGame?: any, similarGames?: SimilarGame[], extendedDetails?: ExtendedGameDetails } | null>(null);
 
     useEffect(() => {
@@ -852,20 +855,35 @@ export function GameDetailClient({ game: initialGame, missions, libraryEntry, is
 
             {/* Content grid */}
             <div className="grid lg:grid-cols-3 gap-8">
-                {/* Missions (2/3 width) */}
-                <div className="lg:col-span-2 space-y-4">
+                {/* Main Content (2/3 width) */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Achievement Progress Header */}
+                    {true && (
+                        <AchievementProgress
+                            gameId={game.id}
+                            steamAppId={game.steamAppId}
+                            totalAchievements={achievements.length}
+                            unlockedAchievements={achievements.filter(a => !!a.unlockedAt).length}
+                        />
+                    )}
+                    
+                    {/* Toggle between Achievements and Missions if both exist */}
                     <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-display font-bold">Missions</h2>
-                        {missions.length > 0 && (
-                            <Badge variant="outline">{missions.length} objectives</Badge>
-                        )}
+                        <h2 className="text-xl font-display font-bold">
+                            {achievements.length > 0 || missions.length === 0 ? "Achievements" : "Missions"}
+                        </h2>
+                        <Badge variant="outline">
+                            {achievements.length > 0 || missions.length === 0 ? `${achievements.length} objectives` : `${missions.length} objectives`}
+                        </Badge>
                     </div>
 
-                    {missions.length > 0 ? (
+                    {achievements.length > 0 || missions.length === 0 ? (
+                        <AchievementList achievements={achievements} />
+                    ) : missions.length > 0 ? (
                         <MissionList missions={missions} onToggle={handleMissionToggle} />
                     ) : (
                         <div className="glass-card p-8 text-center">
-                            <p className="text-muted-foreground">No missions defined for this game yet.</p>
+                            <p className="text-muted-foreground">No missions or achievements defined for this game yet.</p>
                         </div>
                     )}
                 </div>

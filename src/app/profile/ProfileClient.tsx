@@ -60,6 +60,9 @@ interface UserProfile {
     bio: string;
     trackerPlatform: string | null;
     trackerUsername: string | null;
+    steamId: string | null;
+    steamUsername: string | null;
+    steamAvatarUrl: string | null;
 }
 
 interface FriendInfo {
@@ -73,6 +76,8 @@ interface ProfileClientProps {
     library: LibraryEntry[];
     friends?: FriendInfo[];
 }
+
+import { SteamLinkCard } from "@/components/SteamLinkCard";
 
 const statusFilters = [
     { value: "ALL", label: "All Games", icon: LayoutGrid },
@@ -545,13 +550,27 @@ export function ProfileClient({ user, library, friends = [] }: ProfileClientProp
                                 </div>
                             </div>
 
-                            {/* Connected Accounts (Tracker.gg) */}
+                            {/* Connected Accounts (Tracker.gg & Steam) */}
                             <div className="glass-card p-5 space-y-3">
                                 <h3 className="font-display font-semibold flex items-center gap-2">
                                     <TrendingUp className="h-5 w-5 text-neon-cyan" />
                                     Connected Accounts
                                 </h3>
-                                {trackerUsername ? (
+
+                                <div className="space-y-4">
+                                    <SteamLinkCard
+                                        steamProfile={
+                                            user.steamId
+                                                ? {
+                                                      steamId: user.steamId,
+                                                      username: user.steamUsername || "Steam User",
+                                                      avatarUrl: user.steamAvatarUrl || undefined,
+                                                  }
+                                                : null
+                                        }
+                                    />
+                                
+                                    {trackerUsername ? (
                                     <div className="space-y-2">
                                         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20">
                                             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -610,6 +629,7 @@ export function ProfileClient({ user, library, friends = [] }: ProfileClientProp
                                         {trackerMessage}
                                     </p>
                                 )}
+                                </div>
                             </div>
 
                             {/* Favorite games */}
