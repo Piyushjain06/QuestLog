@@ -46,7 +46,12 @@ export const authOptions: NextAuthOptions = {
                 if (!credentials?.token) return null;
                 try {
                     const { jwtVerify } = await import("jose");
-                    const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || "default_secret_for_local_dev_12345");
+                    const rawSecret = process.env.NEXTAUTH_SECRET;
+                    if (!rawSecret) {
+                        console.error("[auth] NEXTAUTH_SECRET is not set — refusing Steam login");
+                        return null;
+                    }
+                    const secret = new TextEncoder().encode(rawSecret);
                     const { payload } = await jwtVerify(credentials.token, secret);
                     const steamId = payload.steamId as string;
                     

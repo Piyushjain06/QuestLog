@@ -327,12 +327,6 @@ export default function AuthPage() {
                     </p>
                 </div>
 
-                {/* Demo credentials hint */}
-                <div className="mt-4 text-center">
-                    <p className="text-xs text-muted-foreground/60">
-                        Demo: <span className="text-muted-foreground font-mono">gamer@questlog.dev</span> / <span className="text-muted-foreground font-mono">password123</span>
-                    </p>
-                </div>
             </div>
         </div>
     );

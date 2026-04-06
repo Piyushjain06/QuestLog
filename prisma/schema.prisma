@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("POSTGRES_URL")
 }
 
 // --- Core Entities ---
@@ -80,7 +79,6 @@ model Game {
   bannerUrl   String?
   steamAppId  String?  @unique
   epicId      String?  @unique
-  tgdbId      String?  @unique
   releaseDate DateTime? @db.Date // Use actual date types
   developer   String?
   publisher   String?

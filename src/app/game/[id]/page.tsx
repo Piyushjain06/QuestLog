@@ -32,19 +32,23 @@ export default async function GameDetailPage({ params }: { params: { id: string 
     // Lazy backfill igdbId if missing (for legacy games imported before IGDB migration)
     if (!game.igdbId) {
         try {
-            const searchResult = await searchGames(game.title, 1);
+            const searchResult = await searchGames(game.title, 5);
             if (searchResult.games.length > 0) {
-                const bestMatch = searchResult.games[0];
-                game = await prisma.game.update({
-                    where: { id: game.id },
-                    data: { igdbId: String(bestMatch.igdbId) },
-                    include: {
-                        missions: { orderBy: { orderIndex: "asc" } },
-                        library: true,
-                        genres: { include: { genre: true } },
-                        platforms: { include: { platform: true } },
-                    },
-                });
+                // To prevent aggressive false matches (like linking to a Bundle), only backfill if there's an exact title match
+                const exactMatch = searchResult.games.find((g: any) => g.title.toLowerCase() === game.title.toLowerCase());
+                
+                if (exactMatch) {
+                    game = await prisma.game.update({
+                        where: { id: game.id },
+                        data: { igdbId: String(exactMatch.igdbId) },
+                        include: {
+                            missions: { orderBy: { orderIndex: "asc" } },
+                            library: true,
+                            genres: { include: { genre: true } },
+                            platforms: { include: { platform: true } },
+                        },
+                    });
+                }
             }
         } catch (e) {
             console.warn("Failed to backfill igdbId for legacy game", game.title, e);

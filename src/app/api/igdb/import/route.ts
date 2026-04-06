@@ -30,8 +30,16 @@ export async function POST(req: NextRequest) {
             const finalDescription = clientDescription || igdbGame.description;
 
             // Check by slug too (might exist from seed or Steam import)
-            const slug = slugify(igdbGame.title);
+            let slug = slugify(igdbGame.title);
             game = await prisma.game.findUnique({ where: { slug } });
+
+            // If a game with this slug exists, but it already has a DIFFERENT igdbId, 
+            // it means we have a title collision (like a remake vs original).
+            // Do NOT overwrite it. Instead, create a new record with a unique slug.
+            if (game && game.igdbId && game.igdbId !== String(igdbId)) {
+                slug = `${slug}-${igdbId}`;
+                game = null; // Proceed to create new
+            }
 
             if (game) {
                 // Link existing game to IGDB — always prefer fresh data

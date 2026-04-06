@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { userSearchLimiter } from "@/lib/rateLimiter";
 
 export async function GET(req: Request) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const rl = userSearchLimiter.check(session.user.email);
+    if (!rl.allowed) {
+        return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -16,18 +22,24 @@ export async function GET(req: Request) {
         return NextResponse.json({ users: [] });
     }
 
-    const currentUser = await prisma.user.findUnique({
-        where: { email: session.user.email },
-        select: { id: true },
-    });
+    let currentUser = null;
+    if (session?.user?.email) {
+        currentUser = await prisma.user.findUnique({
+            where: { email: session.user.email },
+            select: { id: true },
+        });
+    }
+
+    const whereClause: any = {
+        name: { contains: q, mode: "insensitive" } // Add case-insensitivity while we're here, it's usually useful
+    };
+
+    if (currentUser) {
+        whereClause.id = { not: currentUser.id };
+    }
 
     const users = await prisma.user.findMany({
-        where: {
-            AND: [
-                { name: { contains: q } },
-                { id: { not: currentUser?.id } },
-            ],
-        },
+        where: whereClause,
         select: {
             id: true,
             name: true,

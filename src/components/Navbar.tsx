@@ -124,7 +124,7 @@ export function Navbar() {
                         </div>
 
                         {/* Other nav links */}
-                        {OTHER_NAV_LINKS.map((link) => {
+                        {session && OTHER_NAV_LINKS.map((link) => {
                             const isActive = pathname === link.href;
                             return (
                                 <Link
@@ -223,25 +223,29 @@ export function Navbar() {
                         })}
 
                         {/* Other links */}
-                        <p className="px-4 pt-3 pb-1 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">Navigation</p>
-                        {OTHER_NAV_LINKS.map((link) => {
-                            const isActive = pathname === link.href;
-                            return (
-                                <Link
-                                    key={link.href}
-                                    href={link.href}
-                                    onClick={() => setMobileOpen(false)}
-                                    className={cn(
-                                        "block px-4 py-3 text-sm font-medium rounded-lg transition-colors",
-                                        isActive
-                                            ? "text-foreground bg-accent"
-                                            : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                                    )}
-                                >
-                                    {link.label}
-                                </Link>
-                            );
-                        })}
+                        {session && (
+                            <>
+                                <p className="px-4 pt-3 pb-1 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">Navigation</p>
+                                {OTHER_NAV_LINKS.map((link) => {
+                                    const isActive = pathname === link.href;
+                                    return (
+                                        <Link
+                                            key={link.href}
+                                            href={link.href}
+                                            onClick={() => setMobileOpen(false)}
+                                            className={cn(
+                                                "block px-4 py-3 text-sm font-medium rounded-lg transition-colors",
+                                                isActive
+                                                    ? "text-foreground bg-accent"
+                                                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                                            )}
+                                        >
+                                            {link.label}
+                                        </Link>
+                                    );
+                                })}
+                            </>
+                        )}
 
                         <div className="pt-3 border-t border-border space-y-2">
                             {session ? (

@@ -4,11 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { GameCard } from "@/components/GameCard";
 import { GameCoverImage } from "@/components/GameCoverImage";
-import { TrackerStats } from "@/components/TrackerStats";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { GameStatus } from "@/lib/utils";
-import { PLATFORM_LABELS } from "@/lib/tracker";
 import {
     Gamepad2,
     Trophy,
@@ -59,8 +57,6 @@ interface UserProfile {
     joinedAt: string;
     image: string | null;
     bio: string;
-    trackerPlatform: string | null;
-    trackerUsername: string | null;
     steamId: string | null;
     steamUsername: string | null;
     steamAvatarUrl: string | null;
@@ -290,68 +286,10 @@ export function ProfileClient({ user, library, friends = [] }: ProfileClientProp
         input.click();
     };
 
-    // ── Tracker account linking state ──
-    const [trackerPlatform, setTrackerPlatform] = useState(user.trackerPlatform || "");
-    const [trackerUsername, setTrackerUsername] = useState(user.trackerUsername || "");
-    const [trackerPlatformInput, setTrackerPlatformInput] = useState(user.trackerPlatform || "origin");
-    const [trackerUsernameInput, setTrackerUsernameInput] = useState(user.trackerUsername || "");
-    const [savingTracker, setSavingTracker] = useState(false);
-    const [trackerMessage, setTrackerMessage] = useState<string | null>(null);
-
-    const handleSaveTracker = async () => {
-        if (!trackerUsernameInput.trim()) return;
-        setSavingTracker(true);
-        setTrackerMessage(null);
-        try {
-            const res = await fetch("/api/profile/tracker", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ platform: trackerPlatformInput, username: trackerUsernameInput.trim() }),
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setTrackerPlatform(data.trackerPlatform || "");
-                setTrackerUsername(data.trackerUsername || "");
-                setTrackerMessage("Account linked!");
-            } else {
-                const err = await res.json();
-                setTrackerMessage(err.error || "Failed to save.");
-            }
-        } catch {
-            setTrackerMessage("Failed to save.");
-        } finally {
-            setSavingTracker(false);
-        }
-    };
-
-    const handleUnlinkTracker = async () => {
-        setSavingTracker(true);
-        setTrackerMessage(null);
-        try {
-            const res = await fetch("/api/profile/tracker", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({}),
-            });
-            if (res.ok) {
-                setTrackerPlatform("");
-                setTrackerUsername("");
-                setTrackerPlatformInput("origin");
-                setTrackerUsernameInput("");
-                setTrackerMessage("Account unlinked.");
-            }
-        } catch {
-            setTrackerMessage("Failed to unlink.");
-        } finally {
-            setSavingTracker(false);
-        }
-    };
-
     const tabs = [
         { value: "overview", label: "Overview" },
         { value: "game-list", label: "Game List" },
         { value: "stats", label: "Stats" },
-        { value: "tracker", label: "Tracker Stats" },
     ];
 
     return (
@@ -545,65 +483,6 @@ export function ProfileClient({ user, library, friends = [] }: ProfileClientProp
                                         }
                                     />
                                 
-                                    {trackerUsername ? (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20">
-                                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                            <span className="text-xs font-medium text-green-400">Tracker.gg Linked</span>
-                                        </div>
-                                        <div className="text-sm text-muted-foreground space-y-1">
-                                            <p><span className="text-foreground font-medium">{trackerUsername}</span></p>
-                                            <p className="text-xs">{PLATFORM_LABELS[trackerPlatform] || trackerPlatform}</p>
-                                        </div>
-                                        <button
-                                            onClick={handleUnlinkTracker}
-                                            disabled={savingTracker}
-                                            className="text-xs text-red-400 hover:text-red-300 transition-colors"
-                                        >
-                                            {savingTracker ? "Unlinking..." : "Unlink Account"}
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        <select
-                                            value={trackerPlatformInput}
-                                            onChange={(e) => setTrackerPlatformInput(e.target.value)}
-                                            className="w-full px-3 py-2 rounded-lg bg-muted/30 border border-border/50 text-sm text-foreground focus:border-neon-cyan/50 focus:ring-1 focus:ring-neon-cyan/30 outline-none transition-all"
-                                        >
-                                            <option value="origin">EA / Origin</option>
-                                            <option value="xbl">Xbox Live</option>
-                                            <option value="psn">PlayStation</option>
-                                            <option value="uplay">Ubisoft Connect</option>
-                                        </select>
-                                        <input
-                                            type="text"
-                                            value={trackerUsernameInput}
-                                            onChange={(e) => setTrackerUsernameInput(e.target.value)}
-                                            placeholder="Enter your gamertag..."
-                                            className="w-full px-3 py-2 rounded-lg bg-muted/30 border border-border/50 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-neon-cyan/50 focus:ring-1 focus:ring-neon-cyan/30 outline-none transition-all"
-                                            onKeyDown={(e) => { if (e.key === "Enter") handleSaveTracker(); }}
-                                        />
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleSaveTracker}
-                                            disabled={savingTracker || !trackerUsernameInput.trim()}
-                                            className="w-full gap-2"
-                                        >
-                                            {savingTracker ? (
-                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                            ) : (
-                                                <TrendingUp className="h-3.5 w-3.5" />
-                                            )}
-                                            Link Tracker.gg
-                                        </Button>
-                                    </div>
-                                )}
-                                {trackerMessage && (
-                                    <p className={`text-xs ${trackerMessage.includes("Failed") ? "text-red-400" : "text-green-400"}`}>
-                                        {trackerMessage}
-                                    </p>
-                                )}
                                 </div>
                             </div>
 
@@ -1048,12 +927,6 @@ export function ProfileClient({ user, library, friends = [] }: ProfileClientProp
                     </div>
                 )}
 
-                {activeTab === "tracker" && (
-                    <TrackerStats
-                        platform={trackerPlatform || null}
-                        username={trackerUsername || null}
-                    />
-                )}
             </div>
         </div>
     );

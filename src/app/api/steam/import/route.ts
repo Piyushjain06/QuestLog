@@ -1,25 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { importSteamLibrary } from "@/lib/steam";
 import { normalizeAndUpsertGames, linkGamesToUser } from "@/lib/normalizer";
+import { steamImportLimiter } from "@/lib/rateLimiter";
 
 export async function POST(req: NextRequest) {
     try {
+        // ── Auth guard ──────────────────────────────────────────────────────
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.email) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const rl = steamImportLimiter.check(session.user.email);
+        if (!rl.allowed) {
+            return NextResponse.json(
+                { error: "You can only import your Steam library 3 times every 5 minutes. Please wait." },
+                { status: 429 }
+            );
+        }
+
         const { steamId } = await req.json();
 
         if (!steamId) {
             return NextResponse.json({ error: "Steam ID required" }, { status: 400 });
         }
 
-        // Get or create user
-        let user = await prisma.user.findFirst({ where: { steamId } });
+        // Fetch the authenticated user and verify the steamId belongs to them
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+            select: { id: true, steamId: true },
+        });
         if (!user) {
-            user = await prisma.user.create({
-                data: {
-                    steamId,
-                    name: `Steam User ${steamId.slice(-4)}`,
-                },
-            });
+            return NextResponse.json({ error: "User not found" }, { status: 401 });
+        }
+        if (user.steamId !== steamId) {
+            return NextResponse.json({ error: "Forbidden: Steam ID does not match your account" }, { status: 403 });
         }
 
         // Fetch games from Steam

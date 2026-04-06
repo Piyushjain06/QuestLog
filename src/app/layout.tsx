@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
 import { Providers } from "@/components/Providers";
 
 const inter = Inter({
@@ -33,10 +34,13 @@ export default function RootLayout({
                 className={`${inter.variable} ${outfit.variable} min-h-screen bg-background font-sans antialiased`}
             >
                 <Providers>
-                    <Navbar />
-                    <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-                        {children}
-                    </main>
+                    <div className="flex min-h-screen flex-col">
+                        <Navbar />
+                        <main className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 flex-1">
+                            {children}
+                        </main>
+                        <Footer />
+                    </div>
                 </Providers>
             </body>
         </html>

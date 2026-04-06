@@ -78,8 +78,6 @@ export default async function ProfilePage() {
                 joinedAt: user.createdAt.toISOString(),
                 image: user.image || null,
                 bio: user.bio || "",
-                trackerPlatform: (user as any).trackerPlatform || null,
-                trackerUsername: (user as any).trackerUsername || null,
                 steamId: user.steamId || null,
                 steamUsername: user.steamUsername || null,
                 steamAvatarUrl: user.steamAvatarUrl || null,

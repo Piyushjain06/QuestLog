@@ -1,0 +1,89 @@
+# ============================================================
+# QuestLog — Production Docker Compose
+# ============================================================
+# Usage:
+#   docker compose up -d --build     # Build & start everything
+#   docker compose logs -f app       # Tail app logs
+#   docker compose down              # Stop all services
+#   docker compose down -v           # Stop & destroy volumes (data loss!)
+# ============================================================
+
+services:
+  # ── PostgreSQL Database ──────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-questlog}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-questlog_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-questlog}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-questlog} -d ${POSTGRES_DB:-questlog}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - questlog-net
+    # In production, do NOT expose the port externally.
+    # Uncomment below only for debugging:
+    # ports:
+    #   - "5432:5432"
+
+  # ── Next.js Application ─────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-questlog}:${POSTGRES_PASSWORD:-questlog_secret}@db:5432/${POSTGRES_DB:-questlog}?schema=public"
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      STEAM_API_KEY: ${STEAM_API_KEY:-}
+      TRACKER_API_KEY: ${TRACKER_API_KEY:-}
+      TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID}
+      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET}
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - questlog-net
+
+  # ── Database Migrations (run-once) ──────────────────────────
+  # This service applies migrations and optionally seeds, then exits.
+  # Usage: docker compose run --rm migrate
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-questlog}:${POSTGRES_PASSWORD:-questlog_secret}@db:5432/${POSTGRES_DB:-questlog}?schema=public"
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        echo "⏳ Applying database migrations..."
+        npx prisma migrate deploy
+        echo "✅ Migrations applied successfully."
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - questlog-net
+    profiles:
+      - tools
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  questlog-net:
+    driver: bridge

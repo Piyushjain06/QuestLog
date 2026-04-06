@@ -1,0 +1,31 @@
+# ============================================================
+# QuestLog — Development Override
+# ============================================================
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# This override:
+#   - Mounts source code for hot-reload
+#   - Runs `npm run dev` instead of production build
+#   - Exposes PostgreSQL port for local tooling
+# ============================================================
+
+services:
+  db:
+    ports:
+      - "5432:5432"
+
+  app:
+    build:
+      context: .
+      target: deps
+    command: ["npm", "run", "dev"]
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-questlog}:${POSTGRES_PASSWORD:-questlog_secret}@db:5432/${POSTGRES_DB:-questlog}?schema=public"
+    healthcheck:
+      disable: true

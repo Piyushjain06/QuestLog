@@ -35,10 +35,15 @@ export async function normalizeAndUpsertGames(games: GameInput[]) {
             existing = await prisma.game.findUnique({ where: { epicId: game.epicId } });
         }
 
-        // 2. Fuzzy match by slug
+        // 2. Slug match — only accept if the stored title is an exact case-insensitive match.
+        //    A slug like "resident-evil-village" would otherwise match
+        //    "Resident Evil Village & Resident Evil 7 Complete Bundle" (same slug prefix).
         if (!existing) {
             const slug = slugify(game.title);
-            existing = await prisma.game.findUnique({ where: { slug } });
+            const bySlug = await prisma.game.findUnique({ where: { slug } });
+            if (bySlug && bySlug.title.toLowerCase() === game.title.toLowerCase()) {
+                existing = bySlug;
+            }
         }
 
         if (existing) {

@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    // Standalone output for Docker — produces a self-contained server
+    output: "standalone",
     // Increase header buffer — pairs with --max-http-header-size=16384 in dev script
     // Goal: diagnose + fix bloated cookies; keep prod headers under 8KB
     images: {

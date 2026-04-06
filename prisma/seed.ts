@@ -1,7 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
+import { prisma } from "../src/lib/prisma";
 import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
+import { searchGames } from "../src/lib/igdb";
 
 const games = [
     {
@@ -492,6 +492,7 @@ async function main() {
                 slug: game.slug,
                 description: game.description,
                 coverUrl: game.coverUrl,
+                steamAppId: game.steamAppId,
                 genres: {
                     create: game.genres.map((name) => ({
                         genre: { connectOrCreate: { where: { name }, create: { name } } }
@@ -502,11 +503,9 @@ async function main() {
                         platform: { connectOrCreate: { where: { name }, create: { name } } }
                     }))
                 },
-                genreNames: game.genres,
-                platformNames: game.platforms,
                 developer: game.developer,
                 publisher: game.publisher,
-                releaseDate: game.releaseDate,
+                releaseDate: game.releaseDate ? new Date(game.releaseDate) : null,
                 rating: game.rating,
             },
         });
@@ -586,52 +585,41 @@ async function main() {
         console.log(`✅ Added ${hadesMissions.length} missions for Hades`);
     }
 
-    // Optional: Enrich games with TheGamesDB data
-    const tgdbKey = process.env.TGDB_API_KEY;
-    if (tgdbKey) {
-        console.log("\n🔗 TGDB API key found — enriching games with TheGamesDB data...");
-        const TGDB_BASE = "https://api.thegamesdb.net";
+    // Optional: Enrich games with IGDB data
+    const twitchClientId = process.env.TWITCH_CLIENT_ID;
+    const twitchClientSecret = process.env.TWITCH_CLIENT_SECRET;
+    
+    if (twitchClientId && twitchClientSecret) {
+        console.log("\n🔗 IGDB API keys found — enriching games with IGDB data...");
         let enriched = 0;
 
         for (const game of games) {
             try {
-                const params = new URLSearchParams({
-                    apikey: tgdbKey,
-                    name: game.title,
-                    fields: "overview,genres,publishers",
-                    include: "boxart",
-                });
-                const res = await fetch(`${TGDB_BASE}/v1.1/Games/ByGameName?${params}`);
-                const json = await res.json();
+                // Search for the game specifically by title
+                const res = await searchGames(game.title, 1);
 
-                if (json.data?.games?.length > 0) {
-                    const tgdbGame = json.data.games[0];
-                    const imageBase = json.include?.boxart?.base_url?.original ?? "";
-                    const boxarts = json.include?.boxart?.data?.[String(tgdbGame.id)] ?? [];
-                    const front = boxarts.find((b: { side?: string }) => b.side === "front");
-                    const coverUrl = front
-                        ? `${imageBase.replace("/original/", "/medium/")}${front.filename}`
-                        : undefined;
-
+                if (res.games && res.games.length > 0) {
+                    const igdbGame = res.games[0];
+                    
                     await prisma.game.update({
                         where: { slug: game.slug },
                         data: {
-                            tgdbId: String(tgdbGame.id),
-                            ...(coverUrl ? { coverUrl } : {}),
+                            igdbId: String(igdbGame.igdbId),
+                            ...(igdbGame.coverUrl ? { coverUrl: igdbGame.coverUrl } : {}),
                         },
                     });
                     enriched++;
                 }
 
-                // Rate limit: ~200ms between requests
-                await new Promise((r) => setTimeout(r, 200));
-            } catch {
-                // Skip on error — TGDB enrichment is optional
+                // Rate limit: IGDB allows 4 requests per second.
+                await new Promise((r) => setTimeout(r, 260));
+            } catch (error) {
+                // Skip on error — IGDB enrichment is optional
             }
         }
-        console.log(`✅ Enriched ${enriched}/${games.length} games with TGDB IDs`);
+        console.log(`✅ Enriched ${enriched}/${games.length} games with IGDB IDs`);
     } else {
-        console.log("\nℹ️  Set TGDB_API_KEY in .env to enrich games with TheGamesDB data");
+        console.log("\nℹ️  Set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET in .env to enrich games with IGDB data");
     }
 
     console.log("\n🚀 Seed complete! Run `npm run dev` to start QuestLog.");

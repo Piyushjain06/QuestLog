@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchGames } from "@/lib/igdb";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { searchLimiter } from "@/lib/rateLimiter";
 
 // Search the local Prisma DB as a fallback
 async function searchLocalDB(query: string) {
@@ -49,9 +52,19 @@ async function searchLocalDB(query: string) {
 }
 
 export async function GET(req: NextRequest) {
+    // Rate limit by IP (unauthenticated callers) or email (authenticated)
+    const session = await getServerSession(authOptions);
+    const identifier =
+        session?.user?.email ??
+        (req.headers.get("x-forwarded-for") ?? req.headers.get("host") ?? "anon");
+    const rlResult = searchLimiter.check(identifier);
+    if (!rlResult.allowed) {
+        return NextResponse.json({ error: "Too many requests. Please wait before searching again." }, { status: 429 });
+    }
+
     const q = req.nextUrl.searchParams.get("q") ?? "";
     const offset = parseInt(req.nextUrl.searchParams.get("offset") ?? "0", 10);
-    const limit = Math.min(parseInt(req.nextUrl.searchParams.get("limit") ?? "50", 10), 500);
+    const pageLimit = Math.min(parseInt(req.nextUrl.searchParams.get("limit") ?? "50", 10), 500);
     const genresParam = req.nextUrl.searchParams.get("genres") ?? "";
     const themesParam = req.nextUrl.searchParams.get("themes") ?? "";
 
@@ -70,7 +83,7 @@ export async function GET(req: NextRequest) {
 
     // Try IGDB first
     try {
-        const result = await searchGames(query, limit, offset, genres, themes);
+        const result = await searchGames(query, pageLimit, offset, genres, themes);
 
         if (result.games.length > 0) {
             return NextResponse.json({ ...result, source: "igdb" });

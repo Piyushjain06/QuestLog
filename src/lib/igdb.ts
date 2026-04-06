@@ -181,7 +181,12 @@ export async function searchGames(
     themes: string[] = []
 ): Promise<{ games: NormalizedGame[]; count: number }> {
     // Build dynamic where conditions
-    const whereParts: string[] = ["version_parent = null"];
+    // category = 0 (Main Game), 8 (Remake), 9 (Remaster), 10 (Expanded Game), 11 (Port)
+    // Exclude: 1 (DLC), 2 (Expansion), 3 (Bundle), 4 (Standalone Expansion), 5 (Mod), 6 (Episode), 7 (Season), 12 (Fork)
+    const whereParts: string[] = [
+        "version_parent = null",
+        "category = (0,8,9,10,11)", // Only standalone, remakes, remasters — never bundles
+    ];
 
     if (genres.length > 0) {
         const genreConditions = genres.map((g) => `genres.name ~ *"${g}"*`).join(" | ");
@@ -230,13 +235,20 @@ export async function searchGames(
 
 export async function getGameById(id: number): Promise<NormalizedGame | null> {
     const query = `
-        fields ${STANDARD_FIELDS};
-        where id = ${id};
+        fields ${STANDARD_FIELDS}, category;
+        where id = ${id} & category = (0,8,9,10,11);
     `;
 
     const rawGames: IGDBGame[] = await fetchIGDB("games", query);
 
-    if (!rawGames || rawGames.length === 0) return null;
+    if (!rawGames || rawGames.length === 0) {
+        // Fallback: fetch without category filter so we can at least return something,
+        // but log a warning so we know the igdbId stored in the DB points to a bundle/DLC.
+        console.warn(`[igdb] getGameById(${id}): no standalone match — stored igdbId may point to a bundle or DLC`);
+        const fallback: IGDBGame[] = await fetchIGDB("games", `fields ${STANDARD_FIELDS}; where id = ${id};`);
+        if (!fallback || fallback.length === 0) return null;
+        return normalizeGame(fallback[0]);
+    }
     return normalizeGame(rawGames[0]);
 }
 
