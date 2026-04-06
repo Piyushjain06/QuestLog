@@ -1,95 +1,83 @@
-# QuestLog 🎮
+# 🎮 QuestLog
 
-**QuestLog** is a modern web application designed for gamers to track their video game collections, manage their backlogs, and showcase their gaming profiles. Built with a focus on type safety and a seamless user experience.
+QuestLog is a modern, full-stack web application designed to help you track, manage, and organize your video game collections. By leveraging the Steam API, it provides a seamless experience for fetching game data, allowing you to keep a detailed log of the titles you've played, are currently playing, or want to play next.
 
----
+## ✨ Features
 
-## 🚀 Features
-
-* **Game Collection Tracking:** Add and organize games in your personal library.
-* **Library Integration:** Planned support for importing game libraries from platforms like **Steam** and **Epic Games**.
-* **Discord Integration:** Includes a Discord RPC worker to showcase your gaming status.
-* **Responsive Design:** Built with **Tailwind CSS** for a seamless experience across all devices.
-* **Type Safety:** Fully developed with **TypeScript** to ensure robust and maintainable code.
-
----
+* **Collection Management:** Easily organize your games by status (e.g., Playing, Completed, Backlog).
+* **Steam API Integration:** Automatically pull in accurate game details, cover art, and metadata directly from Steam.
+* **Responsive UI:** A clean, interactive, and fast user interface optimized for both desktop and mobile viewing.
+* **Robust Data Handling:** Secure and efficient database operations for managing your personal library.
 
 ## 🛠️ Tech Stack
 
-* **Framework:** [Next.js](https://nextjs.org/)
-* **Language:** [TypeScript](https://www.typescriptlang.org/)
+* **Framework:** [Next.js](https://nextjs.org/) (React)
+* **Language:** TypeScript
 * **Database ORM:** [Prisma](https://www.prisma.io/)
-* **Styling:** [Tailwind CSS](https://tailwindcss.com/)
-* **Linting:** ESLint
+* **External APIs:** Steam Web API
 
----
+## 🚀 Getting Started
 
-## 📁 Project Structure
-
-* `src/`: Contains the core application logic and UI components.
-* `prisma/`: Database schema and migrations.
-* `discord-rpc-worker.js`: Script for Discord Rich Presence integration.
-* `tailwind.config.ts`: Tailwind CSS configuration.
-* `next.config.js`: Next.js configuration settings.
-
----
-
-## ⚙️ Getting Started
+Follow these instructions to get a copy of the project up and running on your local machine for development and testing.
 
 ### Prerequisites
 
-* **Node.js** (Latest LTS version recommended)
-* **npm** or **yarn**
+* [Node.js](https://nodejs.org/) (v18 or higher recommended)
+* npm, yarn, or pnpm
+* A database compatible with Prisma (e.g., PostgreSQL)
+* Steam Web API Key
 
 ### Installation
 
-1.  **Clone the repository:**
-    ```bash
-    git clone [https://github.com/Piyushjain06/QuestLog.git](https://github.com/Piyushjain06/QuestLog.git)
-    cd QuestLog
-    ```
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/Piyushjain06/QuestLog.git](https://github.com/Piyushjain06/QuestLog.git)
+   cd QuestLog
+   ```
 
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-3.  **Set up environment variables:**
-    Create a `.env` file in the root directory and add your database connection string:
-    ```env
-    DATABASE_URL="your_postgresql_database_url_here"
-    ```
+3. **Configure Environment Variables:**
+   Create a `.env` file in the root directory and add your necessary keys:
+   ```env
+   DATABASE_URL="your_database_connection_string"
+   STEAM_API_KEY="your_steam_api_key"
+   ```
 
-4.  **Initialize the database:**
-    ```bash
-    npx prisma generate
-    npx prisma db push
-    ```
+4. **Set up the Database:**
+   Run Prisma migrations to sync your schema with the database.
+   ```bash
+   npx prisma migrate dev
+   ```
 
-5.  **Run the development server:**
-    ```bash
-    npm run dev
-    ```
-    Open [http://localhost:3000](http://localhost:3000) to see the app.
-
----
-
-## 📜 Scripts
-
-* `npm run dev`: Starts the development server.
-* `npm run build`: Builds the application for production.
-* `npm run start`: Starts the production server.
-* `npm run lint`: Runs ESLint to check for code quality issues.
-
----
+5. **Start the Development Server:**
+   ```bash
+   npm run dev
+   ```
+   Open http://localhost:3000 in your browser to see the application.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Feel free to open issues or submit pull requests to help improve QuestLog.
+Contributions, issues, and feature requests are welcome!
 
-## 📄 License
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-This project is licensed under the MIT License.
+## 📝 License
 
+**© 2026 Piyush Jain. All Rights Reserved.**
 
-currently working on most of the features
+This project is source-available for **personal, non-commercial use only**. 
+
+You are welcome to clone the repository, explore the code, and run it locally for your own personal use or education. However, you **may not**:
+* Use this code to make money or for any commercial purpose.
+* Deploy or host this application on the internet.
+* Distribute or sell copies of this software.
+
+See the `LICENSE` file for full details.
