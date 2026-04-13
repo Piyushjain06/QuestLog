@@ -185,7 +185,7 @@ export async function searchGames(
     // Exclude: 1 (DLC), 2 (Expansion), 3 (Bundle), 4 (Standalone Expansion), 5 (Mod), 6 (Episode), 7 (Season), 12 (Fork)
     const whereParts: string[] = [
         "version_parent = null",
-        "category = (0,8,9,10,11)", // Only standalone, remakes, remasters — never bundles
+        "(category = null | category = (0,8,9,10,11))", // Only standalone, remakes, remasters — never bundles
     ];
 
     if (genres.length > 0) {
@@ -236,7 +236,7 @@ export async function searchGames(
 export async function getGameById(id: number): Promise<NormalizedGame | null> {
     const query = `
         fields ${STANDARD_FIELDS}, category;
-        where id = ${id} & category = (0,8,9,10,11);
+        where id = ${id} & (category = null | category = (0,8,9,10,11));
     `;
 
     const rawGames: IGDBGame[] = await fetchIGDB("games", query);

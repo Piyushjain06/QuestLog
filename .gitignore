@@ -60,3 +60,14 @@ test*.js
 out*.json
 replace_uuid.js
 migrate-to-postgres.ts
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary/Garbage files
+*.tmp
+*.temp
+hl2.json

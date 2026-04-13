@@ -46,6 +46,7 @@ import { MissionList } from "@/components/MissionList";
 import { AchievementProgress } from "@/components/AchievementProgress";
 import { AchievementList, type Achievement } from "@/components/AchievementList";
 import { parseJsonField, formatPlaytime } from "@/lib/utils";
+import { PredictorWidget } from "@/components/PredictorWidget";
 
 interface Game {
     id: string;
@@ -940,6 +941,18 @@ export function GameDetailClient({ game: initialGame, missions, achievements = [
                         </div>
                     </div>
 
+                    {/* AI Time-to-Beat Predictor */}
+                    <PredictorWidget
+                        genres={genres}
+                        themes={tags}
+                        reviewScore={
+                            game.rating != null
+                                ? Number(game.rating) // IGDB total_rating is already 0–100
+                                : undefined
+                        }
+                        gameTitle={game.title}
+                    />
+
                     {/* Extended Details UI */}
                     {extendedDetails && (
                         <div className="space-y-4">
@@ -964,6 +977,7 @@ export function GameDetailClient({ game: initialGame, missions, achievements = [
                             )}
 
                             {/* Time to Beat */}
+                            {/* Time to beat — hidden for now
                             {extendedDetails.timeToBeat && (
                                 <div className="glass-card p-4 space-y-3">
                                     <h3 className="font-display font-semibold flex items-center gap-2">
@@ -992,6 +1006,7 @@ export function GameDetailClient({ game: initialGame, missions, achievements = [
                                     </div>
                                 </div>
                             )}
+                            */}
 
                             {/* Links */}
                             {extendedDetails.websites.length > 0 && (
