@@ -74,27 +74,33 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
     const [source, setSource] = useState<string>("igdb");
     const PAGE_SIZE = 50;
 
-    // Recommendations state (client-side refreshable)
-    const [currentRecs, setCurrentRecs] = useState<Recommendation[]>(recommendations);
+    // ── Recommendations state ────────────────────────────────────────────
+    // `recPool`    → full sorted buffer fetched from the server (up to 30)
+    // `recPage`    → current page index (0-based, 10 cards per page)
+    // `seenIds`    → all IGDB IDs ever shown (used for exclude param)
+    const PAGE_SIZE_RECS = 10;
+    const [recPool, setRecPool] = useState<Recommendation[]>(recommendations);
+    const [recPage, setRecPage] = useState(0);
     const [seenIds, setSeenIds] = useState<number[]>(recommendations.map((r) => r.igdbId));
     const [recsRefreshing, setRecsRefreshing] = useState(false);
     const [noMoreRecs, setNoMoreRecs] = useState(false);
 
-    // Section data state
-    const [trendingGames, setTrendingGames] = useState<IGDBGame[]>([]);
-    const [anticipatedGames, setAnticipatedGames] = useState<IGDBGame[]>([]);
-    const [comingSoonGames, setComingSoonGames] = useState<IGDBGame[]>([]);
-    const [trendingLoading, setTrendingLoading] = useState(true);
-    const [anticipatedLoading, setAnticipatedLoading] = useState(true);
-    const [comingSoonLoading, setComingSoonLoading] = useState(true);
-    const [showAllAnticipated, setShowAllAnticipated] = useState(false);
-    const [showAllComingSoon, setShowAllComingSoon] = useState(false);
+    // Slice the current page of 10 from the pool
+    const currentRecs = recPool.slice(recPage * PAGE_SIZE_RECS, (recPage + 1) * PAGE_SIZE_RECS);
+    const hasNextPage = (recPage + 1) * PAGE_SIZE_RECS < recPool.length;
 
     const refreshRecommendations = async () => {
         if (recsRefreshing) return;
         setRecsRefreshing(true);
         setNoMoreRecs(false);
         try {
+            // If there's a next page in the buffer, just advance the page
+            if (hasNextPage) {
+                setRecPage((p) => p + 1);
+                setRecsRefreshing(false);
+                return;
+            }
+            // Buffer exhausted — fetch a fresh batch from the API
             const excludeParam = seenIds.join(",");
             const res = await fetch(`/api/recommendations?exclude=${excludeParam}`);
             const data = await res.json();
@@ -102,7 +108,8 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
             if (newRecs.length === 0) {
                 setNoMoreRecs(true);
             } else {
-                setCurrentRecs(newRecs);
+                setRecPool(newRecs);
+                setRecPage(0);
                 setSeenIds((prev) => [...prev, ...newRecs.map((r) => r.igdbId)]);
             }
         } catch {
@@ -113,6 +120,16 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
     };
 
     const INITIAL_COUNT = 8;
+
+    // Section data state
+    const [trendingGames, setTrendingGames] = useState<IGDBGame[]>([]);
+    const [anticipatedGames, setAnticipatedGames] = useState<IGDBGame[]>([]);
+    const [comingSoonGames, setComingSoonGames] = useState<IGDBGame[]>([]);
+    const [trendingLoading, setTrendingLoading] = useState(true);
+    const [anticipatedLoading, setAnticipatedLoading] = useState(true);
+    const [comingSoonLoading, setComingSoonLoading] = useState(true);
+    const [showAllAnticipated, setShowAllAnticipated] = useState(false);
+    const [showAllComingSoon, setShowAllComingSoon] = useState(false);
 
     // Fetch all sections on mount
     useEffect(() => {
@@ -598,13 +615,20 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
                                 </div>
                                 <div className="flex-1">
                                     <h2 className="text-2xl font-display font-bold">Recommended for You</h2>
-                                    <p className="text-sm text-muted-foreground">AI-powered suggestions based on your library</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        AI-powered suggestions based on your genres &amp; themes
+                                        {recPool.length > 0 && (
+                                            <span className="ml-2 text-neon-purple/70">
+                                                · {recPage * PAGE_SIZE_RECS + 1}–{Math.min((recPage + 1) * PAGE_SIZE_RECS, recPool.length)} of {recPool.length}
+                                            </span>
+                                        )}
+                                    </p>
                                 </div>
-                                {currentRecs.length > 0 && (
+                                {recPool.length > 0 && (
                                     <button
                                         onClick={refreshRecommendations}
                                         disabled={recsRefreshing || noMoreRecs}
-                                        title={noMoreRecs ? "No more recommendations" : "Get fresh recommendations"}
+                                        title={noMoreRecs ? "No more recommendations" : hasNextPage ? "See next 10" : "Fetch new recommendations"}
                                         className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-300 border ${
                                             noMoreRecs
                                                 ? "text-muted-foreground/40 border-border/20 cursor-not-allowed"
@@ -612,15 +636,23 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
                                         }`}
                                     >
                                         <RefreshCw className={`h-4 w-4 ${recsRefreshing ? "animate-spin" : ""}`} />
-                                        <span>{recsRefreshing ? "Refreshing…" : noMoreRecs ? "All caught up" : "Refresh"}</span>
+                                        <span>
+                                            {recsRefreshing
+                                                ? "Loading…"
+                                                : noMoreRecs
+                                                    ? "All caught up"
+                                                    : hasNextPage
+                                                        ? "Next 10"
+                                                        : "Refresh"}
+                                        </span>
                                     </button>
                                 )}
                             </div>
 
-                            {currentRecs.filter((rec) => Math.min(Math.round(rec.score * 10), 99) >= 80).length > 0 ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                                    {currentRecs.filter((rec) => Math.min(Math.round(rec.score * 10), 99) >= 80).map((rec) => (
-                                        <div key={rec.igdbId} className="animate-fade-in">
+                            {currentRecs.length > 0 ? (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                    {currentRecs.map((rec) => (
+                                        <div key={`${rec.igdbId}-${recPage}`} className="animate-fade-in">
                                             <RecommendationCard
                                                 igdbId={rec.igdbId}
                                                 title={rec.title}

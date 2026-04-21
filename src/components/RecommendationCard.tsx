@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface RecommendationCardProps {
@@ -27,7 +27,6 @@ export function RecommendationCard({
     score,
     reason,
 }: RecommendationCardProps) {
-    const matchPercent = Math.min(Math.round(score * 10), 99);
     const [navigating, setNavigating] = useState(false);
     const router = useRouter();
 
@@ -76,13 +75,6 @@ export function RecommendationCard({
                         </div>
                     )}
 
-                    {/* Match score */}
-                    <div className="absolute top-2 left-2">
-                        <div className="flex items-center gap-1 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1">
-                            <Sparkles className="h-3 w-3 text-neon-purple" />
-                            <span className="text-xs font-bold text-neon-cyan">{matchPercent}%</span>
-                        </div>
-                    </div>
                 </div>
 
                 <div className="p-3 space-y-2">

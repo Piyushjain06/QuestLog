@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     global model
     try:
         model = joblib.load(MODEL_PATH)
-        print(f"✅  Model loaded from '{MODEL_PATH}'")
+        print(f"[OK] Model loaded from '{MODEL_PATH}'")
     except FileNotFoundError:
         raise RuntimeError(
             f"Model file '{MODEL_PATH}' not found. "
@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
         )
     yield
     # Nothing to clean up, but the hook is here for completeness.
-    print("🛑  Shutting down — model released.")
+    print("[--] Shutting down -- model released.")
 
 
 # ──────────────────────────────────────────────

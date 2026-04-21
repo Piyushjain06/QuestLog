@@ -448,32 +448,59 @@ export async function getMostAnticipatedGames(limit: number = 8): Promise<Normal
 export async function getRecommendedGames(
     genreNames: string[],
     excludeIgdbIds: number[] = [],
-    limit: number = 20
+    limit: number = 20,
+    themeNames: string[] = []
 ): Promise<NormalizedGame[]> {
     try {
-        if (genreNames.length === 0) return [];
-
-        // Build genre/theme name filters — match any of the user's preferred genres or themes
-        const genreConditions = genreNames.map((g) => `genres.name ~ *"${g}"*`).join(" | ");
-        const themeConditions = genreNames.map((g) => `themes.name ~ *"${g}"*`).join(" | ");
+        if (genreNames.length === 0 && themeNames.length === 0) return [];
 
         const excludeClause = excludeIgdbIds.length > 0
             ? `& id != (${excludeIgdbIds.join(",")})`
             : "";
 
+        const baseFilter = `version_parent = null & cover != null & total_rating_count >= 5 & total_rating >= 70 ${excludeClause}`;
+
+        // Build separate conditions for genres and themes
+        const genreConditions = genreNames.length > 0
+            ? genreNames.map((g) => `genres.name ~ *"${g}"*`).join(" | ")
+            : null;
+
+        const themeConditions = themeNames.length > 0
+            ? themeNames.map((t) => `themes.name ~ *"${t}"*`).join(" | ")
+            : null;
+
+        let matchFilter: string;
+        if (genreConditions && themeConditions) {
+            // Match both genres AND themes — games that satisfy at least one genre AND at least one theme
+            matchFilter = `(${genreConditions}) & (${themeConditions})`;
+        } else if (genreConditions) {
+            matchFilter = `(${genreConditions})`;
+        } else {
+            matchFilter = `(${themeConditions})`;
+        }
+
         const query = `
             fields ${STANDARD_FIELDS};
-            where (${genreConditions} | ${themeConditions})
-                & version_parent = null
-                & cover != null
-                & total_rating_count >= 5
-                & total_rating >= 70
-                ${excludeClause};
+            where ${matchFilter}
+                & ${baseFilter};
             sort total_rating desc;
             limit ${limit};
         `;
 
-        const rawGames: IGDBGame[] = await fetchIGDB("games", query);
+        let rawGames: IGDBGame[] = await fetchIGDB("games", query);
+
+        // Fallback: if AND-matching genres+themes returns too few, relax to OR
+        if (rawGames.length < Math.floor(limit / 2) && genreConditions && themeConditions) {
+            const relaxedQuery = `
+                fields ${STANDARD_FIELDS};
+                where (${genreConditions} | ${themeConditions})
+                    & ${baseFilter};
+                sort total_rating desc;
+                limit ${limit};
+            `;
+            rawGames = await fetchIGDB("games", relaxedQuery);
+        }
+
         return rawGames.map(normalizeGame);
     } catch (error) {
         console.warn("Failed to fetch recommended games from IGDB:", error);
