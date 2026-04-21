@@ -617,9 +617,9 @@ export default function DiscoverClient({ recommendations = [], hasUser = false }
                                 )}
                             </div>
 
-                            {currentRecs.length > 0 ? (
+                            {currentRecs.filter((rec) => Math.min(Math.round(rec.score * 10), 99) >= 80).length > 0 ? (
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                                    {currentRecs.map((rec) => (
+                                    {currentRecs.filter((rec) => Math.min(Math.round(rec.score * 10), 99) >= 80).map((rec) => (
                                         <div key={rec.igdbId} className="animate-fade-in">
                                             <RecommendationCard
                                                 igdbId={rec.igdbId}

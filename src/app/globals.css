@@ -93,6 +93,15 @@
     @apply font-display;
     font-family: var(--font-outfit), 'Outfit', sans-serif;
   }
+
+  /* Fix Webkit autofill styling */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    transition: background-color 5000s ease-in-out 0s;
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
+  }
 }
 
 @layer components {

@@ -39,7 +39,7 @@ export default async function DiscoverPage() {
         });
 
         if (user) {
-            recommendations = await getRecommendations(user.id, 12);
+            recommendations = await getRecommendations(user.id, 40);
         }
     }
 

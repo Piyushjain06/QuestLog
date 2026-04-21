@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
         ? excludeParam.split(",").map(Number).filter((n) => !isNaN(n))
         : [];
 
-    const recommendations = await getRecommendations(user.id, 12, excludeIds);
+    const recommendations = await getRecommendations(user.id, 40, excludeIds);
 
     return NextResponse.json({ recommendations });
 }

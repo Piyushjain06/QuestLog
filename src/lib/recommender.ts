@@ -114,7 +114,7 @@ export async function getRecommendations(
     }
 
     // 5. Query IGDB for recommended games matching those genres
-    const candidates = await getRecommendedGames(genreNames, excludeIgdbIds, limit * 2);
+    const candidates = await getRecommendedGames(genreNames, excludeIgdbIds, limit * 3);
 
     if (candidates.length === 0) {
         // Fallback to trending games
