@@ -30,6 +30,7 @@ import {
     Loader2,
     Camera,
     Users,
+    Sparkles,
 } from "lucide-react";
 
 interface Game {
@@ -68,10 +69,17 @@ interface FriendInfo {
     image: string | null;
 }
 
+interface PerfectGame {
+    id: string;
+    title: string;
+    coverUrl: string | null;
+}
+
 interface ProfileClientProps {
     user: UserProfile;
     library: LibraryEntry[];
     friends?: FriendInfo[];
+    perfectGames?: PerfectGame[];
 }
 
 import { SteamLinkCard } from "@/components/SteamLinkCard";
@@ -122,7 +130,7 @@ function statusColor(status: string): string {
     }
 }
 
-export function ProfileClient({ user, library, friends = [] }: ProfileClientProps) {
+export function ProfileClient({ user, library, friends = [], perfectGames = [] }: ProfileClientProps) {
     const [activeTab, setActiveTab] = useState("overview");
     const [activeFilter, setActiveFilter] = useState("ALL");
     const [importing, setImporting] = useState(false);
@@ -518,6 +526,7 @@ export function ProfileClient({ user, library, friends = [] }: ProfileClientProp
                                 )}
                             </div>
 
+
                             {/* Friends */}
                             <div className="glass-card p-5 space-y-3">
                                 <Link href="/users">
@@ -562,7 +571,7 @@ export function ProfileClient({ user, library, friends = [] }: ProfileClientProp
                         <div className="lg:col-span-2 space-y-6">
                             {/* Stats row */}
                             <div className="glass-card p-5">
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                <div className={`grid gap-4 ${perfectGames.length > 0 ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4"}`}>
                                     <div className="text-center">
                                         <div className="text-2xl sm:text-3xl font-display font-bold text-neon-cyan">
                                             {library.length}
@@ -587,6 +596,18 @@ export function ProfileClient({ user, library, friends = [] }: ProfileClientProp
                                         </div>
                                         <div className="text-xs text-muted-foreground mt-1">Mean Score</div>
                                     </div>
+                                    {/* Perfect Games stat — only shown when count >= 1 */}
+                                    {perfectGames.length > 0 && (
+                                        <div className="text-center">
+                                            <div className="text-2xl sm:text-3xl font-display font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+                                                {perfectGames.length}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                                                <Sparkles className="h-3 w-3 text-yellow-400" />
+                                                Perfect Games
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Progress bar */}
@@ -636,6 +657,39 @@ export function ProfileClient({ user, library, friends = [] }: ProfileClientProp
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Perfect Games showcase — only visible when count >= 1 */}
+                            {perfectGames.length > 0 && (
+                                <div className="glass-card p-5 space-y-4 border border-yellow-500/20 bg-gradient-to-br from-yellow-500/5 to-amber-500/5">
+                                    <h3 className="font-display font-semibold flex items-center gap-2 text-lg">
+                                        <Sparkles className="h-5 w-5 text-yellow-400" />
+                                        Perfect Games
+                                        <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full ml-auto">
+                                            {perfectGames.length}
+                                        </span>
+                                    </h3>
+                                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
+                                        {perfectGames.map((game) => (
+                                            <Link key={game.id} href={`/game/${game.id}`}>
+                                                <div className="aspect-[3/4] rounded-lg overflow-hidden bg-muted/50 hover:ring-2 hover:ring-yellow-400/60 transition-all cursor-pointer relative group">
+                                                    <GameCoverImage
+                                                        src={game.coverUrl}
+                                                        alt={game.title}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-yellow-900/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-yellow-400 flex items-center justify-center shadow-lg">
+                                                        <Sparkles className="h-2.5 w-2.5 text-yellow-900" />
+                                                    </div>
+                                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <p className="text-[10px] text-white truncate">{game.title}</p>
+                                                    </div>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Activity feed */}
                             <div className="space-y-4">
@@ -897,6 +951,17 @@ export function ProfileClient({ user, library, friends = [] }: ProfileClientProp
                             </div>
                             <div className="text-sm text-muted-foreground mt-1">Completion Rate</div>
                         </div>
+
+                        {/* Perfect Games stat tile — only shown when count >= 1 */}
+                        {perfectGames.length > 0 && (
+                            <div className="glass-card p-6 text-center border border-yellow-500/20 bg-gradient-to-br from-yellow-500/5 to-amber-500/5">
+                                <Sparkles className="h-8 w-8 text-yellow-400 mx-auto mb-3" />
+                                <div className="text-4xl font-display font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+                                    {perfectGames.length}
+                                </div>
+                                <div className="text-sm text-muted-foreground mt-1">Perfect Games</div>
+                            </div>
+                        )}
 
                         {/* Status breakdown */}
                         <div className="glass-card p-6 sm:col-span-2 lg:col-span-3">

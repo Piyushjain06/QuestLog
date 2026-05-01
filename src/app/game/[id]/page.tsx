@@ -107,33 +107,8 @@ export default async function GameDetailPage({ params }: { params: { id: string 
         orderBy: { name: "asc" }
     });
 
-    let userUnlockedAchievements = new Set<string>();
-    if (userId && userSteamId && achievements.length > 0) {
-        const unlocked = await prisma.userAchievement.findMany({
-            where: {
-                userId,
-                achievement: {
-                    gameId: game.id
-                }
-            }
-        });
-        unlocked.forEach((ua: any) => userUnlockedAchievements.add(ua.achievementId));
-    }
-
-    const mappedAchievements = achievements.map((ach: any) => ({
-        id: ach.id,
-        name: ach.name,
-        displayName: ach.displayName,
-        description: ach.description,
-        iconUrl: ach.iconUrl,
-        iconGrayUrl: ach.iconGrayUrl,
-        hidden: ach.hidden,
-        unlockedAt: userUnlockedAchievements.has(ach.id) ? new Date() : null, // Simplify by just using 'now' or we could fetch the real date if we had it. Wait, the DB has `unlockedAt`.
-    }));
-
-    // Actually, let's fetch the unlocked record fully to get the real Date.
     let userMap = new Map<string, Date>();
-    if (userId) {
+    if (userId && userSteamId && achievements.length > 0) {
         const unlocked = await prisma.userAchievement.findMany({
             where: { 
                 userId, 

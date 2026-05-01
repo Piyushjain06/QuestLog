@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Link2, Unlink, Download, CheckCircle2, X, AlertTriangle, ExternalLink, Gamepad2 } from "lucide-react";
+import { Loader2, Link2, Unlink, Download, CheckCircle2, X, AlertTriangle, ExternalLink, Gamepad2, Sparkles, Trophy } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useSearchParams } from "next/navigation";
@@ -134,6 +134,7 @@ export function SteamLinkCard({ steamProfile }: SteamLinkCardProps) {
     const [importResult, setImportResult] = useState<{ imported: number; achievementsSynced: number } | null>(null);
     const [importError, setImportError] = useState<string | null>(null);
     const [showPrivacyWarning, setShowPrivacyWarning] = useState(false);
+    const [newlyPerfectedGames, setNewlyPerfectedGames] = useState<{ id: string; title: string }[]>([]);
 
     const searchParams = useSearchParams();
 
@@ -154,6 +155,9 @@ export function SteamLinkCard({ steamProfile }: SteamLinkCardProps) {
                         }
                     } else {
                         setImportResult({ imported: data.imported, achievementsSynced: data.achievementsSynced });
+                        if (data.newlyPerfectedGames?.length > 0) {
+                            setNewlyPerfectedGames(data.newlyPerfectedGames);
+                        }
                     }
                 } catch {
                     // Silently ignore
@@ -201,6 +205,9 @@ export function SteamLinkCard({ steamProfile }: SteamLinkCardProps) {
                 }
             } else {
                 setImportResult({ imported: data.imported, achievementsSynced: data.achievementsSynced });
+                if (data.newlyPerfectedGames?.length > 0) {
+                    setNewlyPerfectedGames(data.newlyPerfectedGames);
+                }
             }
         } catch (e) {
             console.error(e);
@@ -215,6 +222,77 @@ export function SteamLinkCard({ steamProfile }: SteamLinkCardProps) {
             {/* Fullscreen loading overlay during import */}
             {isImporting && steamProfile && (
                 <ImportLoadingOverlay username={steamProfile.username} />
+            )}
+
+            {/* 🎉 Perfect Games Congratulations Modal */}
+            {newlyPerfectedGames.length > 0 && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
+                    onClick={() => setNewlyPerfectedGames([])}
+                >
+                    <div
+                        className="relative bg-[#0f0f13] border border-yellow-500/30 rounded-2xl shadow-2xl max-w-md w-full p-7 space-y-5 overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Ambient glow */}
+                        <div className="absolute inset-0 pointer-events-none">
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-24 bg-yellow-400/10 rounded-full blur-3xl" />
+                        </div>
+
+                        {/* Close */}
+                        <button
+                            onClick={() => setNewlyPerfectedGames([])}
+                            className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        {/* Icon */}
+                        <div className="flex flex-col items-center gap-3 text-center">
+                            <div className="relative">
+                                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-yellow-400/20 to-amber-600/20 border border-yellow-500/30 flex items-center justify-center shadow-xl">
+                                    <Trophy className="w-10 h-10 text-yellow-400" />
+                                </div>
+                                {/* Sparkle decorations */}
+                                <Sparkles className="absolute -top-2 -right-2 w-5 h-5 text-yellow-300 animate-pulse" />
+                                <Sparkles className="absolute -bottom-1 -left-2 w-4 h-4 text-amber-400 animate-pulse" style={{ animationDelay: "0.5s" }} />
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-display font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+                                    Perfect Game{newlyPerfectedGames.length > 1 ? "s" : ""}! 🎉
+                                </h2>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    You&apos;ve unlocked every achievement in
+                                    {newlyPerfectedGames.length === 1 ? " this game" : " these games"}!
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Game list */}
+                        <div className="space-y-2">
+                            {newlyPerfectedGames.map((game) => (
+                                <div
+                                    key={game.id}
+                                    className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-yellow-500/5 border border-yellow-500/20"
+                                >
+                                    <Sparkles className="w-4 h-4 text-yellow-400 shrink-0" />
+                                    <span className="text-sm font-medium text-foreground truncate">{game.title}</span>
+                                    <span className="ml-auto text-[10px] font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                        100%
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* CTA */}
+                        <button
+                            onClick={() => setNewlyPerfectedGames([])}
+                            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-semibold text-sm hover:opacity-90 transition-opacity"
+                        >
+                            Awesome! 🏆
+                        </button>
+                    </div>
+                </div>
             )}
 
             {/* Privacy Warning Modal */}

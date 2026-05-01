@@ -143,6 +143,10 @@ export async function POST() {
         let imported = 0;
         let achievementsSynced = 0;
 
+        // 3a. Snapshot which games are ALREADY perfect BEFORE the sync
+        //     A game is perfect when every Achievement for it is unlocked by the user.
+        const preSyncPerfectIds = await getPerfectGameIds(user.id);
+
         // 3. Import each game
         for (const steamGame of steamGames) {
             try {
@@ -219,14 +223,77 @@ export async function POST() {
             }
         }
 
+        // 3b. Recompute perfect games AFTER sync and diff to find newly-perfected games
+        const postSyncPerfect = await getPerfectGamesWithTitles(user.id);
+        const newlyPerfectedGames = postSyncPerfect.filter(
+            (g) => !preSyncPerfectIds.has(g.id)
+        );
+
         return NextResponse.json({
             success: true,
             imported,
             achievementsSynced,
+            newlyPerfectedGames,
             message: `Imported ${imported} games with IGDB covers and synced achievements for ${achievementsSynced} of them.`,
         });
     } catch (error: any) {
         console.error("Steam library import error:", error);
         return NextResponse.json({ error: error.message || "Failed to import Steam library" }, { status: 500 });
     }
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Returns a Set of gameIds where the user has unlocked ALL achievements.
+ * A game qualifies only if it has ≥ 1 achievement total.
+ */
+async function getPerfectGameIds(userId: string): Promise<Set<string>> {
+    const perfect = await getPerfectGamesWithTitles(userId);
+    return new Set(perfect.map((g) => g.id));
+}
+
+/**
+ * Returns an array of { id, title, coverUrl } for every game where the user
+ * has unlocked every achievement (and the game has at least 1 achievement).
+ */
+async function getPerfectGamesWithTitles(
+    userId: string
+): Promise<{ id: string; title: string; coverUrl: string | null }[]> {
+    // Total achievements per game
+    const totals = await prisma.achievement.groupBy({
+        by: ["gameId"],
+        _count: { id: true },
+    });
+
+    if (totals.length === 0) return [];
+
+    // Unlocked achievements per game for this user (via achievement → gameId)
+    const unlocked = await prisma.userAchievement.findMany({
+        where: { userId },
+        select: {
+            achievement: { select: { gameId: true } },
+        },
+    });
+
+    // Group unlocked counts by gameId
+    const unlockedMap = new Map<string, number>();
+    for (const ua of unlocked) {
+        const gid = ua.achievement.gameId;
+        unlockedMap.set(gid, (unlockedMap.get(gid) ?? 0) + 1);
+    }
+
+    // Find games where unlocked === total (and total ≥ 1)
+    const perfectGameIds = totals
+        .filter((t) => t._count.id > 0 && unlockedMap.get(t.gameId) === t._count.id)
+        .map((t) => t.gameId);
+
+    if (perfectGameIds.length === 0) return [];
+
+    const games = await prisma.game.findMany({
+        where: { id: { in: perfectGameIds } },
+        select: { id: true, title: true, coverUrl: true },
+    });
+
+    return games;
 }

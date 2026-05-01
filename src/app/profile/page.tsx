@@ -70,6 +70,39 @@ export default async function ProfilePage() {
         }
     }));
 
+    // ── Perfect Games ────────────────────────────────────────────────────────
+    // A game is "perfect" when the user has unlocked ALL of its achievements
+    // (and the game has at least 1 achievement). Computed at query time — no
+    // schema change needed.
+    const [achievementTotals, userAchievements] = await Promise.all([
+        prisma.achievement.groupBy({
+            by: ["gameId"],
+            _count: { id: true },
+        }),
+        prisma.userAchievement.findMany({
+            where: { userId: user.id },
+            select: { achievement: { select: { gameId: true } } },
+        }),
+    ]);
+
+    // Tally how many achievements the user has unlocked per game
+    const unlockedMap = new Map<string, number>();
+    for (const ua of userAchievements) {
+        const gid = ua.achievement.gameId;
+        unlockedMap.set(gid, (unlockedMap.get(gid) ?? 0) + 1);
+    }
+
+    const perfectGameIds = achievementTotals
+        .filter((t) => t._count.id > 0 && unlockedMap.get(t.gameId) === t._count.id)
+        .map((t) => t.gameId);
+
+    const perfectGamesData = perfectGameIds.length > 0
+        ? await prisma.game.findMany({
+            where: { id: { in: perfectGameIds } },
+            select: { id: true, title: true, coverUrl: true },
+        })
+        : [];
+
     return (
         <ProfileClient
             user={{
@@ -88,7 +121,7 @@ export default async function ProfilePage() {
                 name: f.name,
                 image: f.image,
             }))}
+            perfectGames={JSON.parse(JSON.stringify(perfectGamesData))}
         />
     );
 }
-

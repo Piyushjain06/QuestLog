@@ -13,9 +13,11 @@
 
 # Debug Logs & Error Reports
 npm-debug.log*
+npm-error.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.pnpm-error.log*
 *.log
 igdb_debug.json
 igdb_test_output.json

@@ -142,6 +142,25 @@ enum GameStatus {
   PLANNING
 }
 
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum MissionType {
+  MAIN
+  SIDE
+  ACHIEVEMENT
+  COLLECTIBLE
+}
+
+enum MissionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
 model UserGameLibrary {
   userId      String     
   gameId      String     
@@ -162,6 +181,7 @@ model UserGameLibrary {
 
   @@id([userId, gameId]) // Replaces CUID with composite primary key
   @@index([userId, status]) // Highly queried for user profiles
+  @@index([gameId]) // For game detail page library lookups
 }
 
 // Vertical Partitioning: Bulky/rarely updated data separated from volatile data
@@ -169,7 +189,6 @@ model UserGameDetails {
   userId       String 
   gameId       String 
   notes        String?
-  achievements Json    @default("{}") // Native JSONB in Postgres
   
   library      UserGameLibrary @relation(fields: [userId, gameId], references: [userId, gameId], onDelete: Cascade)
 
@@ -177,15 +196,15 @@ model UserGameDetails {
 }
 
 model Mission {
-  id          String   @id @default(cuid())
+  id          String            @id @default(cuid())
   gameId      String   
   title       String
   description String?
-  type        String   @default("MAIN") // MAIN, SIDE, ACHIEVEMENT, COLLECTIBLE
-  difficulty  String?  // EASY, MEDIUM, HARD
-  xpReward    Int      @default(0)
-  orderIndex  Int      @default(0)
-  createdAt   DateTime @default(now())
+  type        MissionType       @default(MAIN)
+  difficulty  MissionDifficulty?
+  xpReward    Int               @default(0)
+  orderIndex  Int               @default(0)
+  createdAt   DateTime          @default(now())
 
   game     Game                  @relation(fields: [gameId], references: [id], onDelete: Cascade)
   progress UserMissionProgress[]
@@ -209,17 +228,18 @@ model UserMissionProgress {
 }
 
 model Friendship {
-  id         String   @id @default(cuid())
+  id         String           @id @default(cuid())
   senderId   String   
   receiverId String   
-  status     String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  status     FriendshipStatus @default(PENDING)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
 
   sender   User @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)
   receiver User @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
 
   @@unique([senderId, receiverId])
+  @@index([receiverId]) // For "received requests" queries in OR clauses
 }
 
 model Achievement {
